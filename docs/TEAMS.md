@@ -73,3 +73,6 @@ app/routes  →  pages  →  domains  →  shared
 5. `shared/` não importa `app/`, `pages/` nem `domains/`.
 6. **Proibido `any`**: use `unknown` + narrowing, genéricos ou tipos dos contratos.
 7. Componentes, hooks e o cliente Axios **não** contêm dados fictícios: toda simulação fica em `src/mocks`.
+8. `src/shared/ui/*` são componentes do shadcn/ui (gerados pela CLI oficial, `pnpm dlx shadcn@latest add <componente>`).
+   Eles são adaptados ao tema do projeto via `src/index.css`, não reescritos; `react/only-export-components`
+   fica desligado só nessa pasta porque é o padrão do shadcn exportar `xxxVariants` junto do componente.
