@@ -1,14 +1,8 @@
 # Domínio `catalog`
 
-**Telas:** Início (`/`) e Detalhes do NFT (`/nft/$nftId`)
+NFTs, edições, busca e filtros. Usado pelas páginas `home`, `nft-detail` e `cart`.
 
-| Pasta | Conteúdo |
-| --- | --- |
-| `model/` | Contratos (`Nft`, `NftEdition`, `CatalogSearch`), schemas de busca da URL |
-| `api/` | Chamadas Axios + query keys/options (`catalogQueries`) |
-| `hooks/` | `useCatalog`, `useNft`, sincronização com `nft.updated` |
-| `components/` | Destaques, cards, filtros, ordenação, paginação, galeria, skeletons |
-| `pages/` | `HomePage`, `NftDetailPage`, `NftNotFound` |
-
-**Eventos consumidos:** `nft.updated` (preço/disponibilidade).
-**Depende de:** `favorites` (botão de favorito), `cart` (adicionar ao carrinho).
+- `model/`: contratos (`Nft`, `NftEdition`, `NftSummary`), categorias e schema de busca da URL
+- `api/`: chamadas Axios e `catalogQueries` (query keys/options)
+- `hooks/`: aplicação de `nft.updated` no cache (catálogo, detalhe)
+- `components/`: `NftCard`, `NftCardSkeleton` e outros reutilizados por mais de uma página

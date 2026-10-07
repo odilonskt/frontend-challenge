@@ -20,7 +20,11 @@
         "patterns": [
           {
             "regex": "^@/domains/[^/]+/.+",
-            "message": "Importe outro domínio apenas pela API pública: @/domains/<domínio> (ver docs/TEAMS.md)."
+            "message": "Importe domínios só pela API pública: @/domains/<domínio> (docs/TEAMS.md)."
+          },
+          {
+            "regex": "^@/pages/",
+            "message": "Páginas não importam outras páginas; rotas usam @/pages/<página> (docs/TEAMS.md)."
           }
         ]
       }
@@ -38,7 +42,40 @@
         "src/app/routes/**"
       ],
       "rules": {
-        "react/only-export-components": "off"
+        "react/only-export-components": "off",
+        "eslint/no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "regex": "^@/domains/[^/]+/.+",
+                "message": "Importe domínios só pela API pública: @/domains/<domínio> (docs/TEAMS.md)."
+              },
+              {
+                "regex": "^@/pages/[^/]+/.+",
+                "message": "Páginas não importam outras páginas; rotas usam @/pages/<página> (docs/TEAMS.md)."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": [
+        "src/shared/**"
+      ],
+      "rules": {
+        "eslint/no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "regex": "^@/(app|pages|domains)(/|$)",
+                "message": "shared/ não depende de app/, pages/ ou domains/ (docs/TEAMS.md)."
+              }
+            ]
+          }
+        ]
       }
     }
   ]
