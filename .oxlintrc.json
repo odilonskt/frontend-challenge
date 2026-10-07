@@ -62,6 +62,14 @@
     },
     {
       "files": [
+        "src/shared/ui/**"
+      ],
+      "rules": {
+        "react/only-export-components": "off"
+      }
+    },
+    {
+      "files": [
         "src/shared/**"
       ],
       "rules": {

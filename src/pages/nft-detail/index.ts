@@ -1,2 +1,2 @@
 // Public entry of the `nft-detail` page, consumed by src/app/routes.
-export {}
+export { NftDetailPage } from './NftDetailPage'

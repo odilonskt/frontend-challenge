@@ -1,4 +1,7 @@
 import { Link, Outlet, createRootRouteWithContext } from '@tanstack/react-router'
+import { useCatalogRealtimeSync } from '@/domains/catalog'
+import { Footer } from '../layout/Footer'
+import { Header } from '../layout/Header'
 import type { RouterContext } from '../router'
 
 export const Route = createRootRouteWithContext<RouterContext>()({
@@ -7,6 +10,9 @@ export const Route = createRootRouteWithContext<RouterContext>()({
 })
 
 function RootLayout() {
+  // Global so catalog data stays live everywhere it's cached (detail, search, featured).
+  useCatalogRealtimeSync()
+
   return (
     <>
       <a
@@ -15,10 +21,13 @@ function RootLayout() {
       >
         Pular para o conteúdo
       </a>
-      {/* Header/Footer from Figma land in the visual pass. */}
-      <main id="main" tabIndex={-1} className="min-h-dvh focus:outline-none">
-        <Outlet />
-      </main>
+      <div className="flex min-h-dvh flex-col">
+        <Header />
+        <main id="main" tabIndex={-1} className="flex-1 focus:outline-none">
+          <Outlet />
+        </main>
+        <Footer />
+      </div>
     </>
   )
 }

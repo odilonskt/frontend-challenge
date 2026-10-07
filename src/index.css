@@ -55,11 +55,11 @@
   --radius-lg: var(--radius);
   --font-sans: 'Work Sans', ui-sans-serif, system-ui, sans-serif;
   --font-mono: 'Space Mono', ui-monospace, monospace;
-  --animate-shimmer: shimmer 1.5s linear infinite;
+  --animate-shimmer: shimmer 1.6s ease-in-out infinite;
 
   @keyframes shimmer {
-    from { background-position: -200% 0; }
-    to { background-position: 200% 0; }
+    from { transform: translateX(-100%); }
+    to { transform: translateX(100%); }
   }
 }
 
