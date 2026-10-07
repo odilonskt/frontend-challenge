@@ -1,0 +1,42 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": [
+    "react",
+    "typescript",
+    "oxc",
+    "jsx-a11y"
+  ],
+  "rules": {
+    "react/rules-of-hooks": "error",
+    "react/only-export-components": [
+      "warn",
+      {
+        "allowConstantExport": true
+      }
+    ],
+    "eslint/no-restricted-imports": [
+      "error",
+      {
+        "patterns": [
+          {
+            "regex": "^@/domains/[^/]+/.+",
+            "message": "Importe outro domínio apenas pela API pública: @/domains/<domínio> (ver docs/TEAMS.md)."
+          }
+        ]
+      }
+    ]
+  },
+  "ignorePatterns": [
+    "src/app/routeTree.gen.ts"
+  ],
+  "overrides": [
+    {
+      "files": [
+        "src/app/routes/**"
+      ],
+      "rules": {
+        "react/only-export-components": "off"
+      }
+    }
+  ]
+}
