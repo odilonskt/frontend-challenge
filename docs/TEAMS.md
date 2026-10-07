@@ -34,7 +34,8 @@ src/domains/<domínio>/
 2. `src/shared/` não importa nada de `src/domains/`.
 3. `src/app/routes/` contém rotas **finas**: validação de search params, guards e `loader`. A UI vem de `pages/`.
 4. Contratos REST ficam em `model/contracts.ts` do domínio e são reutilizados pelos handlers MSW em `src/mocks`.
-5. Componentes, hooks e o cliente Axios **não** contêm dados fictícios: toda simulação fica em `src/mocks`.
+5. **Proibido `any`**: use `unknown` + narrowing, genéricos ou tipos dos contratos. O lint (`typescript/no-explicit-any`) falha o build.
+6. Componentes, hooks e o cliente Axios **não** contêm dados fictícios: toda simulação fica em `src/mocks`.
 
 ## Camadas compartilhadas
 

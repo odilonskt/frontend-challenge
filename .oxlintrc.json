@@ -24,7 +24,10 @@
           }
         ]
       }
-    ]
+    ],
+    "typescript/no-explicit-any": "error",
+    "typescript/no-unsafe-function-type": "error",
+    "typescript/no-non-null-asserted-optional-chain": "error"
   },
   "ignorePatterns": [
     "src/app/routeTree.gen.ts"
