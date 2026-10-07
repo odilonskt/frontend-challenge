@@ -1,4 +1,5 @@
 import { Link, Outlet, createRootRouteWithContext } from '@tanstack/react-router'
+import { useCatalogRealtimeSync } from '@/domains/catalog'
 import { Footer } from '../layout/Footer'
 import { Header } from '../layout/Header'
 import type { RouterContext } from '../router'
@@ -9,6 +10,9 @@ export const Route = createRootRouteWithContext<RouterContext>()({
 })
 
 function RootLayout() {
+  // Global so catalog data stays live everywhere it's cached (detail, search, featured).
+  useCatalogRealtimeSync()
+
   return (
     <>
       <a
