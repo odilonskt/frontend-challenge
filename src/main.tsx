@@ -6,7 +6,11 @@ import './index.css'
 
 async function enableMocking() {
   if (!env.enableMocks) return
-  const { worker } = await import('@/mocks/browser')
+  const [{ worker }, { installMockDevtools }] = await Promise.all([
+    import('@/mocks/browser'),
+    import('@/mocks/devtools'),
+  ])
+  installMockDevtools()
   await worker.start({ onUnhandledRequest: 'bypass', quiet: import.meta.env.PROD })
 }
 

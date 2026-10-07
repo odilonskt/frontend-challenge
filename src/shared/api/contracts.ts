@@ -6,6 +6,8 @@
 export type ApiErrorCode =
   | 'VALIDATION_ERROR' // 422 — field errors in `fields`
   | 'UNAUTHENTICATED' // 401 — no session
+  | 'INVALID_CREDENTIALS' // 401 — wrong e-mail/password on login
+  | 'WALLET_REJECTED' // 422 — simulated wallet refused the connection/signature
   | 'SESSION_EXPIRED' // 401 — session existed but expired
   | 'FORBIDDEN' // 403 — authenticated but not allowed
   | 'NOT_FOUND' // 404

@@ -1,2 +1,2 @@
-// Public API of the `checkout` domain. Other domains import ONLY from here.
+// Public API of the `checkout` domain. Other layers import ONLY from here.
 export {}
