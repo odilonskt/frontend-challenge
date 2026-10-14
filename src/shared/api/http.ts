@@ -1,5 +1,6 @@
 import axios, { AxiosError, type AxiosRequestConfig } from 'axios'
 import { env } from '@/shared/config/env'
+import { getAuthToken } from './auth-token'
 import type { ApiErrorBody, ApiErrorCode } from './contracts'
 
 /** Normalised error every hook/component receives. Never inspect AxiosError outside this file. */
@@ -41,6 +42,12 @@ export const http = axios.create({
   timeout: env.requestTimeoutMs,
   withCredentials: true,
   headers: { 'Content-Type': 'application/json' },
+})
+
+http.interceptors.request.use((config) => {
+  const token = getAuthToken()
+  if (token) config.headers.set('Authorization', `Bearer ${token}`)
+  return config
 })
 
 type AuthErrorListener = (error: ApiError) => void

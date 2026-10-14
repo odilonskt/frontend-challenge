@@ -1,5 +1,6 @@
 import type { Nft } from '@/domains/catalog'
 import type { Order } from '@/domains/orders'
+import type { EnsTld } from '@/domains/profile'
 import type { Wallet } from '@/domains/wallets'
 import type { EthAmount } from '@/shared/lib/eth'
 import { buildNftFixtures } from './fixtures/nfts'
@@ -12,6 +13,9 @@ export interface UserRecord {
   username: string
   email: string
   bio: string
+  ensName: string
+  ensTld: EnsTld
+  walletNickname: string
   avatarUrl: string | null
   passwordSalt: string
   passwordHash: string

@@ -1,4 +1,4 @@
-import type { Profile, UpdateProfileRequest } from '@/domains/profile'
+import { ENS_TLDS, type Profile, type UpdateProfileRequest } from '@/domains/profile'
 import type { Clock } from '../../infra/store'
 import { hashPassword, verifyPassword } from '../../infra/password'
 import { errors } from '../../http/errors'
@@ -6,6 +6,7 @@ import type { UserRecord } from '../../state'
 import type { UserRepository } from '../auth/repository'
 import { collect, validateEmail, validateName, validatePassword, validateUsername } from '../auth/validation'
 
+const ENS_LABEL = /^[a-z0-9][a-z0-9-]{2,39}$/
 const AVATAR = /^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/
 const MAX_AVATAR_BYTES = 1024 * 1024
 
@@ -15,6 +16,9 @@ const toProfile = (user: UserRecord): Profile => ({
   username: user.username,
   email: user.email,
   bio: user.bio,
+  ensName: user.ensName,
+  ensTld: user.ensTld,
+  walletNickname: user.walletNickname,
   avatarUrl: user.avatarUrl,
   updatedAt: user.updatedAt,
 })
@@ -38,6 +42,9 @@ export class ProfileService {
       username: validateUsername(input.username),
       email: validateEmail(input.email),
       bio: input.bio.length <= 280 ? null : 'Use no máximo 280 caracteres.',
+      ensName: input.ensName === '' || ENS_LABEL.test(input.ensName) ? null : 'Use de 3 a 40 letras minúsculas, números ou hífen.',
+      ensTld: (ENS_TLDS as readonly string[]).includes(input.ensTld) ? null : 'Domínio ENS inválido.',
+      walletNickname: input.walletNickname.trim().length <= 40 ? null : 'Use no máximo 40 caracteres.',
     })
     if (Object.keys(fields).length > 0) throw errors.validation(fields)
 
@@ -54,6 +61,9 @@ export class ProfileService {
       username: input.username,
       email: input.email.trim().toLowerCase(),
       bio: input.bio.trim(),
+      ensName: input.ensName,
+      ensTld: input.ensTld,
+      walletNickname: input.walletNickname.trim(),
       updatedAt: this.now(),
     })
     if (!updated) throw errors.notFound('Usuário')
@@ -65,6 +75,12 @@ export class ProfileService {
     const bytes = Math.floor(((dataUrl.length - dataUrl.indexOf(',') - 1) * 3) / 4)
     if (bytes > MAX_AVATAR_BYTES) throw errors.validation({ avatar: 'A imagem deve ter no máximo 1 MB.' })
     const updated = this.users.update(userId, { avatarUrl: dataUrl, updatedAt: this.now() })
+    if (!updated) throw errors.notFound('Usuário')
+    return toProfile(updated)
+  }
+
+  removeAvatar(userId: string): Profile {
+    const updated = this.users.update(userId, { avatarUrl: null, updatedAt: this.now() })
     if (!updated) throw errors.notFound('Usuário')
     return toProfile(updated)
   }

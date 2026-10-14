@@ -1,6 +1,7 @@
 import { HttpResponse, http } from 'msw'
 import { bearerToken } from '../../http/identity'
 import { field, readJson, route } from '../../http/route'
+import type { UpdateProfileRequest } from '@/domains/profile'
 import type { AuthService } from '../auth/service'
 import type { ProfileService } from './service'
 
@@ -21,6 +22,9 @@ export function profileHandlers(api: string, auth: AuthService, profile: Profile
             username: field.string(body, 'username'),
             email: field.string(body, 'email'),
             bio: field.string(body, 'bio'),
+            ensName: field.string(body, 'ensName'),
+            ensTld: field.string(body, 'ensTld') as UpdateProfileRequest['ensTld'],
+            walletNickname: field.string(body, 'walletNickname'),
           }),
         )
       }),
@@ -34,6 +38,8 @@ export function profileHandlers(api: string, auth: AuthService, profile: Profile
         return HttpResponse.json(profile.updateAvatar(userId, field.string(body, 'dataUrl')))
       }),
     ),
+
+    http.delete(`${api}/profile/avatar`, route(({ request }) => HttpResponse.json(profile.removeAvatar(userOf(request))))),
 
     http.post(
       `${api}/profile/password`,

@@ -6,26 +6,26 @@
  * every color/typography decision lives here so the visual pass only edits this block.
  */
 :root {
-  --background: #2b2b2b;
+  --background: #130c0a;
   --foreground: #ffffff;
-  --card: #3b3b3b;
+  --card: #211613;
   --card-foreground: #ffffff;
-  --popover: #3b3b3b;
+  --popover: #211613;
   --popover-foreground: #ffffff;
-  --primary: #a259ff;
-  --primary-foreground: #ffffff;
-  --secondary: #3b3b3b;
+  --primary: #d38b4a;
+  --primary-foreground: #130c0a;
+  --secondary: #211613;
   --secondary-foreground: #ffffff;
-  --muted: #3b3b3b;
-  --muted-foreground: #cccccc;
-  --accent: #858584;
+  --muted: #211613;
+  --muted-foreground: #a58468;
+  --accent: #d38b4a;
   --accent-foreground: #ffffff;
-  --destructive: #ff6b6b;
+  --destructive: #ff7a59;
   --success: #4ade80;
   --warning: #fbbf24;
-  --border: #858584;
-  --input: #ffffff;
-  --ring: #c9a3ff;
+  --border: #5a3a28;
+  --input: #5a3a28;
+  --ring: #e8a96e;
   --radius: 20px;
 }
 
@@ -50,7 +50,7 @@
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
-  --radius-sm: calc(var(--radius) - 10px);
+  --radius-sm: calc(var(--radius) - 16px);
   --radius-md: calc(var(--radius) - 5px);
   --radius-lg: var(--radius);
   --font-sans: 'Work Sans', ui-sans-serif, system-ui, sans-serif;
