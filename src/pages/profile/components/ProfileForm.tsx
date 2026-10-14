@@ -4,10 +4,13 @@ import { useForm, type Path } from 'react-hook-form'
 import { z } from 'zod'
 import { ENS_TLDS, useChangePassword, useUpdateProfile, type Profile } from '@/domains/profile'
 import { isApiError } from '@/shared/api/http'
-import { cn } from '@/shared/lib/cn'
 import { Button } from '@/shared/ui/button'
-import { Field, Input, inputClass } from '@/shared/ui/field'
+import { Field } from '@/shared/ui/field'
+import { Input } from '@/shared/ui/input'
+import { Label } from '@/shared/ui/label'
 import { PasswordInput } from '@/shared/ui/password-input'
+import { Select } from '@/shared/ui/select'
+import { AlertIcon } from '@/shared/icons'
 import { AvatarEditor } from './AvatarEditor'
 
 const schema = z
@@ -103,27 +106,28 @@ export function ProfileForm({ profile }: { profile: Profile }) {
         <Field label="E-mail" required error={errors.email?.message}>
           <Input type="email" autoComplete="email" {...register('email')} />
         </Field>
-        <div className="flex flex-col gap-3">
-          <span id="ens-label" className="text-sm">
-            Nome ENS<span aria-hidden="true" className="ml-1 text-destructive">*</span>
-          </span>
+        <div className="flex flex-col gap-2">
+          <Label id="ens-label" htmlFor="ens-name" required>
+            Nome ENS
+          </Label>
           <div className="flex gap-2" role="group" aria-labelledby="ens-label">
-            <select aria-label="Domínio ENS" className={cn(inputClass, 'w-[92px] shrink-0')} {...register('ensTld')}>
+            <Select aria-label="Domínio ENS" className="w-[92px] shrink-0" {...register('ensTld')}>
               {ENS_TLDS.map((tld) => (
                 <option key={tld} value={tld}>
                   {tld}
                 </option>
               ))}
-            </select>
+            </Select>
             <Input
-              aria-label="Nome ENS"
+              id="ens-name"
               aria-invalid={errors.ensName ? true : undefined}
               aria-describedby={errors.ensName ? 'ens-error' : undefined}
               {...register('ensName')}
             />
           </div>
           {errors.ensName && (
-            <p id="ens-error" role="alert" className="-mt-1 text-xs text-destructive">
+            <p id="ens-error" role="alert" className="flex items-start gap-1 text-caption text-destructive">
+              <AlertIcon aria-hidden="true" strokeWidth={1.5} size={14} className="mt-0.5 shrink-0" />
               {errors.ensName.message}
             </p>
           )}
@@ -135,7 +139,7 @@ export function ProfileForm({ profile }: { profile: Profile }) {
       </div>
 
       <fieldset className="flex flex-col gap-6 md:max-w-[calc(50%-1.5rem)]">
-        <legend className="mb-6 text-base font-bold">Alterar senha</legend>
+        <legend className="mb-6 text-title font-bold">Alterar senha</legend>
         <Field label="Senha atual" error={errors.currentPassword?.message}>
           <PasswordInput autoComplete="current-password" {...register('currentPassword')} />
         </Field>
@@ -153,7 +157,7 @@ export function ProfileForm({ profile }: { profile: Profile }) {
         </Button>
         <p
           role={status?.kind === 'error' ? 'alert' : 'status'}
-          className={status?.kind === 'error' ? 'text-sm text-destructive' : 'text-sm text-success'}
+          className={status?.kind === 'error' ? 'text-body text-destructive' : 'text-body text-success'}
         >
           {status?.message}
         </p>

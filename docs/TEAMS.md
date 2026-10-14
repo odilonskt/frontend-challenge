@@ -73,3 +73,26 @@ app/routes  →  pages  →  domains  →  shared
 5. `shared/` não importa `app/`, `pages/` nem `domains/`.
 6. **Proibido `any`**: use `unknown` + narrowing, genéricos ou tipos dos contratos.
 7. Componentes, hooks e o cliente Axios **não** contêm dados fictícios: toda simulação fica em `src/mocks`.
+8. `src/shared/ui/*` são componentes do shadcn/ui (gerados pela CLI oficial, `pnpm dlx shadcn@latest add <componente>`).
+   Eles são adaptados ao tema do projeto via `src/index.css`, não reescritos; `react/only-export-components`
+   fica desligado só nessa pasta porque é o padrão do shadcn exportar `xxxVariants` junto do componente.
+9. Ícones vêm só de `@/shared/icons` (único módulo que importa `lucide-react`; verificado por `pnpm lint`).
+
+## Padrões visuais
+
+Fonte de verdade: `specs/001-design-system-standards` (`contracts/design-tokens.md` e `contracts/ui-components.md`).
+
+- **Tokens**: cores, tipografia, raios e alturas vivem no bloco de tokens de `src/index.css`. Páginas e componentes usam
+  tokens por nome (`bg-card`, `text-muted-foreground`, `text-body`...); nunca valores literais (`pnpm check:tokens`).
+- **Paleta base**: `#140D0A` fundo · `#241612` superfície · `#D28A4C` primária · `#B39463` texto secundário ·
+  `#F5F1EB` texto principal · `#CFB28C` foco.
+- **Fonte**: Space Mono em toda a interface. Escala: `title` 16/700, `body` 14/400, `action` 14/700, `caption` 12/400.
+- **Layout**: toda página usa `PageContainer` (`@/shared/ui/page-container`, máx. 1200 px, gutter 16/24 px).
+- **Navegação**: `Navbar` (`app/layout/Navbar.tsx`) e `Dock` (`app/layout/Dock.tsx`, só abaixo de 768 px) leem os mesmos
+  itens de `app/layout/nav-items.ts`. Destino sem rota fica desabilitado, nunca como link.
+- **Componentes**: reutilize os de `src/shared/ui` (`Button`, `Input`, `Field`, `Label`, `Select`, `PasswordInput`,
+  `SideMenu`, `NavLink`, `CountBadge`, `Avatar`, `Skeleton`...). Se uma página precisa de um componente igual a outra,
+  ele sobe para `shared/ui`.
+- **Catálogo**: `/design-system` (dev e build de demonstração) mostra tokens, ícones e componentes com seus estados.
+- **Regra de revisão**: cor, fonte, espaçamento ou componente fora do catálogo exige justificativa no PR; se aprovado,
+  atualize o contrato e o catálogo.

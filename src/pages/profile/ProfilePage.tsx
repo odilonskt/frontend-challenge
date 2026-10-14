@@ -4,6 +4,7 @@ import { isApiError } from '@/shared/api/http'
 import { Button } from '@/shared/ui/button'
 import { ProfileForm } from './components/ProfileForm'
 import { ProfileSidebar } from './components/ProfileSidebar'
+import { PageContainer } from '@/shared/ui/page-container'
 
 function FormSkeleton() {
   return (
@@ -23,10 +24,10 @@ export function ProfilePage() {
   const unauthenticated = profile.isError && isApiError(profile.error) && profile.error.isAuthError
 
   return (
-    <div className="mx-auto grid w-full max-w-[1200px] gap-8 px-4 py-8 font-mono md:grid-cols-[310px_1fr] md:px-0">
+    <PageContainer className="grid gap-8 py-8 lg:grid-cols-[310px_1fr]">
       <ProfileSidebar />
       <section aria-labelledby="profile-title">
-        <h1 id="profile-title" className="mb-8 text-base font-bold">
+        <h1 id="profile-title" className="mb-8 text-title font-bold">
           Perfil do colecionador
         </h1>
         {profile.isPending && !profile.isError ? <FormSkeleton /> : null}
@@ -48,6 +49,6 @@ export function ProfilePage() {
           </div>
         )}
       </section>
-    </div>
+    </PageContainer>
   )
 }

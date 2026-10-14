@@ -1,19 +1,13 @@
-const KEY = 'nft.session-token'
+import { getSessionToken, setSessionToken } from './session'
 
-/** Single place that knows where the session token lives; the Axios interceptor reads it from here. */
+/**
+ * Compatibility wrappers over the single session-token store in `./session`.
+ * Kept so existing callers keep working without a second source of truth.
+ */
 export function getAuthToken(): string | null {
-  try {
-    return localStorage.getItem(KEY)
-  } catch {
-    return null
-  }
+  return getSessionToken()
 }
 
 export function setAuthToken(token: string | null) {
-  try {
-    if (token) localStorage.setItem(KEY, token)
-    else localStorage.removeItem(KEY)
-  } catch {
-    // Storage unavailable (private mode): the session just won't survive a refresh.
-  }
+  setSessionToken(token)
 }

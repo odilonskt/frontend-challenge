@@ -1,6 +1,7 @@
-import { ImageUp } from 'lucide-react'
 import { useRef, useState, type ChangeEvent } from 'react'
 import { isApiError } from '@/shared/api/http'
+import { AvatarIcon } from '@/shared/icons'
+import { Avatar, AvatarFallback, AvatarImage } from '@/shared/ui/avatar'
 import { Button } from '@/shared/ui/button'
 import { useRemoveAvatar, useUpdateAvatar, type Profile } from '@/domains/profile'
 
@@ -46,18 +47,17 @@ export function AvatarEditor({ avatarUrl }: Pick<Profile, 'avatarUrl'>) {
   }
 
   return (
-    <div className="flex flex-col gap-3">
-      <span id="avatar-label" className="text-sm">
+    <div className="flex flex-col gap-2">
+      <span id="avatar-label" className="text-body">
         Avatar
       </span>
       <div className="flex flex-wrap items-center gap-6" role="group" aria-labelledby="avatar-label">
-        <div className="flex size-[50px] items-center justify-center overflow-hidden rounded-full bg-card text-primary">
-          {avatarUrl ? (
-            <img src={avatarUrl} alt="Seu avatar atual" className="size-full object-cover" />
-          ) : (
-            <ImageUp aria-label="Nenhum avatar definido" role="img" size={22} />
-          )}
-        </div>
+        <Avatar className="size-[50px] bg-card text-primary">
+          {avatarUrl ? <AvatarImage src={avatarUrl} alt="Seu avatar atual" /> : null}
+          <AvatarFallback className="bg-card text-primary">
+            <AvatarIcon strokeWidth={1.5} size={22} role="img" aria-label="Nenhum avatar definido" />
+          </AvatarFallback>
+        </Avatar>
         <input
           ref={input}
           type="file"
@@ -78,7 +78,7 @@ export function AvatarEditor({ avatarUrl }: Pick<Profile, 'avatarUrl'>) {
         {update.isSuccess ? 'Avatar atualizado.' : remove.isSuccess ? 'Avatar removido.' : ''}
       </p>
       {error && (
-        <p role="alert" className="text-xs text-destructive">
+        <p role="alert" className="text-caption text-destructive">
           {error}
         </p>
       )}

@@ -1,5 +1,10 @@
 import { createFileRoute } from '@tanstack/react-router'
+import { PageContainer } from '@/shared/ui/page-container'
 
 export const Route = createFileRoute('/')({
-  component: () => <h1 className="p-8 text-3xl font-semibold">NFT Marketplace</h1>,
+  component: () => (
+    <PageContainer className="py-8">
+      <h1 className="text-title font-bold">Kurio</h1>
+    </PageContainer>
+  ),
 })

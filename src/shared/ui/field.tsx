@@ -1,12 +1,7 @@
-import { cloneElement, useId, type InputHTMLAttributes, type ReactElement } from 'react'
+import { cloneElement, useId, type ReactElement } from 'react'
+import { AlertIcon } from '@/shared/icons'
 import { cn } from '@/shared/lib/cn'
-
-export const inputClass =
-  'h-10 w-full rounded-sm border border-border bg-background px-3 text-sm text-foreground placeholder:text-muted-foreground aria-invalid:border-destructive disabled:opacity-60'
-
-export function Input({ className, ...props }: InputHTMLAttributes<HTMLInputElement>) {
-  return <input className={cn(inputClass, className)} {...props} />
-}
+import { Label } from './label'
 
 interface FieldProps {
   label: string
@@ -17,27 +12,23 @@ interface FieldProps {
   children: ReactElement<{ id?: string; 'aria-invalid'?: boolean; 'aria-describedby'?: string }>
 }
 
-/** Label + control + associated error message. */
+/** Label + control + associated error message (icon + text, announced to assistive tech). */
 export function Field({ label, required, error, className, children }: FieldProps) {
   const id = useId()
   const errorId = `${id}-error`
   return (
-    <div className={cn('flex flex-col gap-3', className)}>
-      <label htmlFor={id} className="text-sm">
+    <div className={cn('flex flex-col gap-2', className)}>
+      <Label htmlFor={id} required={required}>
         {label}
-        {required && (
-          <span aria-hidden="true" className="ml-0.5 text-destructive">
-            *
-          </span>
-        )}
-      </label>
+      </Label>
       {cloneElement(children, {
         id,
         'aria-invalid': error ? true : undefined,
         'aria-describedby': error ? errorId : undefined,
       })}
       {error && (
-        <p id={errorId} role="alert" className="-mt-1 text-xs text-destructive">
+        <p id={errorId} role="alert" className="flex items-start gap-1 text-caption text-destructive">
+          <AlertIcon aria-hidden="true" strokeWidth={1.5} size={14} className="mt-0.5 shrink-0" />
           {error}
         </p>
       )}
