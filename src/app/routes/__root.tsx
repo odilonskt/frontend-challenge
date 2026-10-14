@@ -1,7 +1,7 @@
 import { Link, Outlet, createRootRouteWithContext } from '@tanstack/react-router'
+import { useSession } from '@/domains/auth'
 import { useCartCount } from '@/domains/cart'
 import { useCatalogRealtimeSync } from '@/domains/catalog'
-import { useIsAuthenticated } from '@/shared/api/use-is-authenticated'
 import { Button } from '@/shared/ui/button'
 import { PageContainer } from '@/shared/ui/page-container'
 import { Dock, DOCK_HEIGHT_CLASS } from '../layout/Dock'
@@ -41,8 +41,9 @@ function RootLayout() {
 /** Feeds the presentational Navbar from the cart and session. */
 function NavbarContainer() {
   const cartCount = useCartCount()
-  const authenticated = useIsAuthenticated()
-  return <Navbar cartCount={cartCount} user={authenticated ? { name: 'Minha conta', avatarUrl: null } : null} />
+  const session = useSession()
+  const user = session.data ? { name: session.data.user.name, avatarUrl: session.data.user.avatarUrl } : null
+  return <Navbar cartCount={cartCount} user={user} />
 }
 
 function NotFound() {

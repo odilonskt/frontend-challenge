@@ -42,16 +42,11 @@ export function Navbar({ cartCount = 0, user = null }: NavbarProps) {
             <SearchIcon {...iconProps} size={20} />
           </Button>
 
-          <Button
-            variant="ghost"
-            size="icon"
-            className="relative"
-            aria-label={`Carrinho${cartCount > 0 ? `, ${cartCount} item(ns)` : ''}`}
-            aria-disabled="true"
-            title="Em breve"
-          >
-            <CartIcon {...iconProps} size={20} />
-            <CountBadge count={cartCount} className="absolute -right-0.5 -top-0.5" />
+          <Button asChild variant="ghost" size="icon" className="relative">
+            <Link to="/cart" aria-label={`Carrinho${cartCount > 0 ? `, ${cartCount} item(ns)` : ''}`}>
+              <CartIcon {...iconProps} size={20} />
+              <CountBadge count={cartCount} className="absolute -right-0.5 -top-0.5" />
+            </Link>
           </Button>
 
           {user ? (
@@ -61,9 +56,11 @@ export function Navbar({ cartCount = 0, user = null }: NavbarProps) {
               </Link>
             </Button>
           ) : (
-            <Button size="sm" aria-disabled="true" title="Em breve">
-              <LoginIcon {...iconProps} />
-              Entrar
+            <Button asChild size="sm">
+              <Link to="/login">
+                <LoginIcon {...iconProps} />
+                Entrar
+              </Link>
             </Button>
           )}
         </div>

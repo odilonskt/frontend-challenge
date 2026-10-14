@@ -1,10 +1,26 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { PageContainer } from '@/shared/ui/page-container'
+import { z } from 'zod'
+import { AVAILABILITY_FILTERS, CATALOG_SORTS, NFT_CATEGORIES } from '@/domains/catalog'
+import { HomePage } from '@/pages/home'
+
+// The router's default search parser turns a numeric-looking query value (e.g. `minPrice=999`)
+// into a JS number, even though the catalog API expects decimal-string ETH amounts — normalize back.
+const ethAmountSearch = z
+  .union([z.string(), z.number()])
+  .transform((value) => String(value))
+  .optional()
+
+const homeSearchSchema = z.object({
+  q: z.string().optional(),
+  category: z.array(z.enum(NFT_CATEGORIES)).optional(),
+  availability: z.enum(AVAILABILITY_FILTERS).optional(),
+  minPrice: ethAmountSearch,
+  maxPrice: ethAmountSearch,
+  sort: z.enum(CATALOG_SORTS).optional(),
+  page: z.number().int().positive().optional(),
+})
 
 export const Route = createFileRoute('/')({
-  component: () => (
-    <PageContainer className="py-8">
-      <h1 className="text-title font-bold">Kurio</h1>
-    </PageContainer>
-  ),
+  validateSearch: homeSearchSchema,
+  component: HomePage,
 })

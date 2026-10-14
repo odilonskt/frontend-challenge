@@ -5,7 +5,7 @@ export interface NavItem {
   label: string
   icon: IconComponent
   /** Existing route, or null while the destination is out of scope / not built. */
-  to: '/' | '/account/profile' | null
+  to: '/' | '/account/profile' | '/cart' | null
   /** False when `to` is null: rendered disabled, never as a working link. */
   enabled: boolean
   placement: ReadonlyArray<'navbar' | 'dock'>
@@ -17,7 +17,7 @@ export const NAV_ITEMS: readonly NavItem[] = [
   { id: 'market', label: 'Mercado', icon: MarketIcon, to: null, enabled: false, placement: ['navbar', 'dock'] },
   { id: 'creators', label: 'Criadores', icon: ProfileIcon, to: null, enabled: false, placement: ['navbar'] },
   { id: 'learn', label: 'Aprenda', icon: HomeIcon, to: null, enabled: false, placement: ['navbar'] },
-  { id: 'cart', label: 'Carrinho', icon: CartIcon, to: null, enabled: false, placement: ['dock'] },
+  { id: 'cart', label: 'Carrinho', icon: CartIcon, to: '/cart', enabled: true, placement: ['dock'] },
   { id: 'favorites', label: 'Favoritos', icon: HeartIcon, to: null, enabled: false, placement: ['dock'] },
   { id: 'account', label: 'Conta', icon: ProfileIcon, to: '/account/profile', enabled: true, placement: ['dock'] },
 ]

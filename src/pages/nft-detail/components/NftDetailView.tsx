@@ -8,8 +8,8 @@ import { Breadcrumb } from './Breadcrumb'
 import { EditionPicker } from './EditionPicker'
 import { Gallery } from './Gallery'
 import { PurchaseActions } from './PurchaseActions'
-import { QuantityStepper } from './QuantityStepper'
 import { PageContainer } from '@/shared/ui/page-container'
+import { QuantityStepper } from '@/shared/ui/quantity-stepper'
 
 const firstSelectable = (editions: NftEdition[]) => editions.find((e) => e.status === 'available') ?? editions[0]
 

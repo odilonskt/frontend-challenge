@@ -1,9 +1,10 @@
-import { Link } from '@tanstack/react-router'
+import { Link, useNavigate } from '@tanstack/react-router'
+import { useLogout } from '@/domains/auth'
 import { useProfile } from '@/domains/profile'
 import { isApiError } from '@/shared/api/http'
+import { AccountSideMenu } from '@/shared/ui/account-side-menu'
 import { Button } from '@/shared/ui/button'
 import { ProfileForm } from './components/ProfileForm'
-import { ProfileSidebar } from './components/ProfileSidebar'
 import { PageContainer } from '@/shared/ui/page-container'
 
 function FormSkeleton() {
@@ -22,10 +23,21 @@ function FormSkeleton() {
 export function ProfilePage() {
   const profile = useProfile()
   const unauthenticated = profile.isError && isApiError(profile.error) && profile.error.isAuthError
+  const logout = useLogout()
+  const navigate = useNavigate()
+
+  async function handleLogout() {
+    try {
+      await logout.mutateAsync()
+    } catch {
+      // The local session is dropped regardless (useLogout's onSettled); an expired token has nothing left to revoke.
+    }
+    await navigate({ to: '/' })
+  }
 
   return (
     <PageContainer className="grid gap-8 py-8 lg:grid-cols-[310px_1fr]">
-      <ProfileSidebar />
+      <AccountSideMenu active="profile" onLogout={handleLogout} />
       <section aria-labelledby="profile-title">
         <h1 id="profile-title" className="mb-8 text-title font-bold">
           Perfil do colecionador

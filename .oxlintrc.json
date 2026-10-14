@@ -108,7 +108,10 @@
       "files": [
         "src/shared/icons/**",
         "src/shared/ui/dialog.tsx",
-        "src/shared/ui/sonner.tsx"
+        "src/shared/ui/sonner.tsx",
+        "src/shared/ui/checkbox.tsx",
+        "src/shared/ui/radio-group.tsx",
+        "src/shared/ui/sheet.tsx"
       ],
       "rules": {
         "eslint/no-restricted-imports": "off"

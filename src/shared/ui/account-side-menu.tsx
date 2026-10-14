@@ -1,5 +1,3 @@
-import { useQueryClient } from '@tanstack/react-query'
-import { useNavigate } from '@tanstack/react-router'
 import {
   ActivityIcon,
   DownloadIcon,
@@ -11,9 +9,7 @@ import {
   WalletIcon,
   type IconComponent,
 } from '@/shared/icons'
-import { api } from '@/shared/api/http'
-import { setAuthToken } from '@/shared/api/auth-token'
-import { SideMenu, SideMenuItem } from '@/shared/ui/side-menu'
+import { SideMenu, SideMenuItem } from './side-menu'
 
 /** Sections outside the challenge scope are shown as in the layout, but are inert and announced as unavailable. */
 const UNAVAILABLE: { label: string; icon: IconComponent }[] = [
@@ -24,27 +20,17 @@ const UNAVAILABLE: { label: string; icon: IconComponent }[] = [
   { label: 'Suporte', icon: SupportIcon },
 ]
 
-export function ProfileSidebar() {
-  const queryClient = useQueryClient()
-  const navigate = useNavigate()
-
-  async function logout() {
-    try {
-      await api.post('/auth/logout')
-    } catch {
-      // The local session is dropped regardless; an expired token has nothing left to revoke.
-    }
-    setAuthToken(null)
-    queryClient.clear()
-    await navigate({ to: '/' })
-  }
-
+/**
+ * Account navigation shared by every `/account/*` page (Perfil, Carteiras). Purely presentational —
+ * the active item and the logout action are injected by the caller, same pattern as `Navbar`.
+ */
+export function AccountSideMenu({ active, onLogout }: { active: 'profile' | 'wallets'; onLogout: () => void }) {
   return (
     <SideMenu title="Meu perfil" aria-label="Minha conta">
-      <SideMenuItem icon={ProfileIcon} href="/account/profile" active>
+      <SideMenuItem icon={ProfileIcon} href="/account/profile" active={active === 'profile'}>
         Dados do perfil
       </SideMenuItem>
-      <SideMenuItem icon={WalletIcon} href="/account/wallets">
+      <SideMenuItem icon={WalletIcon} href="/account/wallets" active={active === 'wallets'}>
         Carteiras
       </SideMenuItem>
       {UNAVAILABLE.map(({ label, icon }) => (
@@ -53,7 +39,7 @@ export function ProfileSidebar() {
           <span className="sr-only"> (indisponível)</span>
         </SideMenuItem>
       ))}
-      <SideMenuItem icon={LogoutIcon} separated onClick={logout} className="font-bold">
+      <SideMenuItem icon={LogoutIcon} separated onClick={onLogout} className="font-bold">
         Sair
       </SideMenuItem>
     </SideMenu>
