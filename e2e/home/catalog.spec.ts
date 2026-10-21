@@ -26,6 +26,29 @@ test('a filter combination with no matches shows the empty state', async ({ page
   await expect(page).toHaveURL('/')
 })
 
+test('shows a retry-capable error state when the catalog request fails', async ({ page }) => {
+  // selectScenario needs the app already mounted (it calls window.__nftMock); on a fresh page with
+  // nothing loaded yet, pass the scenario via the `?scenario=` param the runtime reads on boot instead.
+  await page.goto('/?scenario=service-unavailable')
+  await expect(page.getByText('Não foi possível carregar o catálogo')).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Tentar novamente' })).toBeVisible()
+})
+
+test('the price-range filter slider is operable via keyboard, not just mouse', async ({ page }) => {
+  await page.goto('/')
+  const priceLabel = page.getByText(/^Preço: /)
+  const before = await priceLabel.textContent()
+
+  const minThumb = page.getByRole('slider').first()
+  await minThumb.focus()
+  await minThumb.press('ArrowRight')
+  await minThumb.press('ArrowRight')
+
+  await expect(async () => {
+    expect(await priceLabel.textContent()).not.toBe(before)
+  }).toPass()
+})
+
 test('catalog has no critical accessibility violations', async ({ page }) => {
   await page.goto('/')
   await expect(page.getByRole('heading', { level: 1 })).toBeVisible()

@@ -131,7 +131,7 @@ A signed-in collector, from the account section (alongside the existing "Dados d
 
 ### Functional Requirements
 
-- **FR-001**: The system MUST render a home/catalog screen at the root route showing a hero section, a collection/price/network filter panel, search, sort control, an NFT grid and pagination, matching the structure and content shown in the `Início.png` reference designs (desktop and mobile).
+- **FR-001**: The system MUST render a home/catalog screen at the root route showing a hero section, a collection/price/network filter panel, search, sort control, an NFT grid and pagination, matching the structure and content shown in the `Início.png` reference designs (desktop and mobile), bounded by the Assumptions' note that minor spacing, font-rendering or placeholder-asset differences from the reference designs are acceptable and not in-scope visual defects.
 - **FR-002**: The system MUST let users combine collection, price-range and network filters, search text, and a sort order, updating the listed NFTs and resetting pagination to the first page whenever a filter changes.
 - **FR-003**: The system MUST reflect catalog price/availability changes received in real time on already-rendered NFT cards without requiring a manual refresh.
 - **FR-004**: The system MUST provide a single shared authentication dialog with an "Entrar" tab and a "Criar conta" tab, reachable from the navbar "Entrar" action and from any protected route a signed-out user attempts to reach.
@@ -142,17 +142,17 @@ A signed-in collector, from the account section (alongside the existing "Dados d
 - **FR-009**: The system MUST render a cart screen listing each NFT line with its image, name, token id, unit price, an edition quantity stepper, and a computed line subtotal, matching `Carrinho de NFTs.png`.
 - **FR-010**: The system MUST recompute the cart's subtotal, launch discount, network fee and total whenever a line's quantity changes, a line is removed, or a promo code is applied/removed, and MUST show an explicit empty-cart state when no lines remain.
 - **FR-011**: The system MUST validate a promo code before applying its discount, leaving totals unchanged and showing an inline error for an invalid code.
-- **FR-012**: The system MUST require authentication before entering checkout from the cart's "Conectar e finalizar" action, and MUST prevent reaching checkout with an empty cart.
+- **FR-012**: The system MUST require authentication before entering checkout from the cart's "Conectar e finalizar" action, and MUST prevent reaching checkout with an empty cart, redirecting back to `/cart` in that case.
 - **FR-013**: The system MUST render a checkout/payment screen collecting collector-profile fields (display name, username, network, wallet address, secondary wallet/ENS, wallet type, referral code, e-mail, ENS name) and an order summary (line items, subtotal, discount, network fee, total) with a wallet/connection method selector, matching `Pagamento.png`.
 - **FR-014**: The system MUST block checkout submission while any required field is invalid or empty, surfacing field-level validation messages.
-- **FR-015**: The system MUST revalidate the cart's price quote immediately before confirming a purchase, and MUST use a per-attempt idempotency key so a retried submission after a timeout/failure resumes or recovers the original order instead of creating a duplicate.
+- **FR-015**: The system MUST revalidate the cart's price quote immediately before confirming a purchase, and MUST use a per-attempt idempotency key — scoped to the cart's current quote signature, not the checkout session generally, per `research.md` D4 — so a retried submission after a timeout/failure resumes or recovers the original order instead of creating a duplicate.
 - **FR-016**: The system MUST support an alternate-wallet entry path ("Usar outra carteira?") within checkout.
 - **FR-017**: The system MUST render an order-confirmation screen for a confirmed order showing transaction id, date, total, wallet used, itemized line items (with editions and subtotal), network fee, grand total and an outbound link to view the transaction on a block explorer, matching `Confirmação de Pedido.png`.
 - **FR-018**: The system MUST render distinct pending and declined states on the order-confirmation screen when the order has not settled as confirmed, each withholding the confirmed receipt content.
 - **FR-019**: The system MUST render a Carteiras screen within the existing account area (reusing the same account side-navigation as the Perfil do Colecionador screen) for managing a primary wallet (display name, nickname, network, wallet address, wallet type, e-mail, ENS name, referral code) and an optional secondary wallet, matching `Carteiras.png`.
-- **FR-020**: The system MUST let a secondary wallet be marked "Igual à carteira principal" to reuse the primary wallet's values instead of requiring independent re-entry.
+- **FR-020**: The system MUST let a secondary wallet be marked "Igual à carteira principal" to reuse the primary wallet's values instead of requiring independent re-entry; this copies a snapshot of the primary wallet's values at creation time, not a live link to later edits of the primary wallet.
 - **FR-021**: The system MUST persist wallet changes so that saved primary/secondary wallet values are shown on a subsequent visit to the Carteiras screen.
-- **FR-022**: Every screen in this feature (home, auth dialog, cart, checkout, order confirmation, wallets) MUST provide full functional parity between the desktop (≥1440px) and mobile (~390px) breakpoints shown in the reference designs, including the mobile bottom-dock navigation and any filter/search affordances that replace sidebar content on small viewports.
+- **FR-022**: Every screen in this feature (home, auth dialog, cart, checkout, order confirmation, wallets) MUST provide full functional parity between the desktop (≥1440px) and mobile (~390px) breakpoints shown in the reference designs, including the mobile bottom-dock navigation and any filter/search affordances that replace sidebar content on small viewports. Different visual treatments per breakpoint (e.g. sidebar vs. sheet, dialog vs. full-width sheet) are explicitly allowed as long as the underlying functionality is equivalent — parity requires equivalent capability, not visual identity.
 - **FR-023**: The system MUST show a not-found/forbidden state on the order-confirmation screen when the requested order does not exist or does not belong to the signed-in user.
 
 ### Key Entities
@@ -164,17 +164,26 @@ A signed-in collector, from the account section (alongside the existing "Dados d
 - **Order / Transaction**: A purchase created from a cart at checkout time, with a status (pending, confirmed, declined), transaction id, date, wallet used, itemized line items (carried over from the cart) and network fee/total.
 - **Wallet**: A collector's saved wallet entry (primary or secondary) with display name, nickname, network, address, wallet type, e-mail, ENS name and referral code.
 
+**Note**: FR-013 and FR-019 list "nome de usuário"/"username" and "código de indicação"/"referral code" among the checkout/wallet fields; these do not add attributes to `Wallet` or `Order`. Per `research.md` D2/D3, "username" and "ENS name" are read from the existing `Profile` entity (`username`, `ensName`/`ensTld`), and "referral code" is a visual-only field not persisted by any contract in this iteration.
+
 ## Success Criteria *(mandatory)*
 
 ### Measurable Outcomes
 
 - **SC-001**: A first-time visitor can go from landing on the home page to having an NFT in their cart in 3 actions or fewer (browse/filter, open NFT, add to cart).
+  _Traceable to: FR-001, FR-002._
 - **SC-002**: A new visitor can create an account via "Criar conta" and reach an authenticated state in under 2 minutes.
+  _Traceable to: FR-004, FR-006._
 - **SC-003**: An authenticated collector with items already in the cart can complete checkout (profile + wallet + confirmation) in under 5 minutes on a first attempt.
+  _Traceable to: FR-012, FR-013, FR-014, FR-015._
 - **SC-004**: All 7 screens in scope (home, login/signup dialog, cart, checkout, order confirmation, wallets, plus the responsive variants of each) render with equivalent functionality at both the 1440px desktop and 390px mobile reference breakpoints, with zero features available on desktop but missing on mobile.
+  _Traceable to: FR-022._
 - **SC-005**: Cart and checkout totals (subtotal, discount, network fee, total) update within 1 second of any quantity, promo-code or line-removal change, with no full-page reload.
+  _Traceable to: FR-010, FR-015._
 - **SC-006**: At least 90% of invalid submissions (bad promo code, duplicate e-mail, incomplete checkout form) are resolved by the user on their next attempt using only the inline error messaging shown, without needing external help.
+  _Traceable to: FR-006, FR-011, FR-014._
 - **SC-007**: Zero duplicate orders are created when a checkout submission is retried after a timeout or transient failure.
+  _Traceable to: FR-015._
 
 ## Assumptions
 
@@ -187,3 +196,17 @@ A signed-in collector, from the account section (alongside the existing "Dados d
 - Visual fidelity targets the structure, content and interactions of the provided PNG reference designs; minor spacing, font-rendering or placeholder-asset differences from the exported mockups are acceptable as long as layout, content and behavior match.
 - Already-built shared UI (shadcn/ui-based `src/shared/ui/*`, `Navbar`, `Dock`, account `ProfileSidebar`/side-menu) is reused across these screens rather than rebuilt per screen.
 - Detalhes do NFT and Perfil do Colecionador are already implemented and are out of scope for new work in this feature; they are referenced only as integration points (e.g. "add to cart" from NFT detail, shared account navigation with wallets).
+
+## Traceability
+
+| User Story | Functional Requirements |
+|---|---|
+| US1 — Discover NFTs on the home/catalog screen | FR-001, FR-002, FR-003 |
+| US2 — Authenticate via Login / Cadastro | FR-004, FR-005, FR-006, FR-007, FR-008 |
+| US3 — Manage the NFT cart | FR-009, FR-010, FR-011, FR-012 |
+| US4 — Complete checkout / Pagamento | FR-012, FR-013, FR-014, FR-015, FR-016 |
+| US5 — View order confirmation | FR-017, FR-018, FR-023 |
+| US6 — Manage wallets in the account area | FR-019, FR-020, FR-021 |
+| (cross-cutting, all stories) | FR-022 |
+
+For example, US4 Acceptance Scenario 3's "retry doesn't duplicate the order" is satisfied by FR-015.

@@ -22,6 +22,7 @@ export const toSummary = (nft: Nft): NftSummary => ({
   totalAvailable: nft.totalAvailable,
   featured: nft.featured,
   createdAt: nft.createdAt,
+  collection: nft.collection,
   version: nft.version,
 })
 

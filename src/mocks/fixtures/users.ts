@@ -22,6 +22,8 @@ export function buildUserFixtures() {
       passwordSalt: '72586dd57164fdaaed3bac29ad271d5f',
       passwordHash: 'f69b171abc331eafb1cccc5eb1fa992c368d1dc5d22d36587fae0faf78391e85',
       updatedAt: SEED_DATE,
+      role: 'admin',
+      status: 'active',
     },
     {
       id: 'usr_bruno',
@@ -36,6 +38,8 @@ export function buildUserFixtures() {
       passwordSalt: '013e42d72923c939457eec307ff1effc',
       passwordHash: '9a1557372aff93b01aa4989f3cfa919e73207dfa867f550f80dcee1696915f17',
       updatedAt: SEED_DATE,
+      role: 'collector',
+      status: 'active',
     },
   ]
 

@@ -5,6 +5,7 @@ import { AccountSideMenu } from '@/shared/ui/account-side-menu'
 import { PageContainer } from '@/shared/ui/page-container'
 import { Skeleton } from '@/shared/ui/skeleton'
 import { SecondaryWalletSection } from './components/SecondaryWalletSection'
+import { WalletsLoadError } from './components/WalletsLoadError'
 
 export function WalletsPage() {
   const wallets = useWallets()
@@ -21,6 +22,8 @@ export function WalletsPage() {
     }
     await navigate({ to: '/' })
   }
+
+  if (wallets.isError) return <WalletsLoadError onRetry={() => void wallets.refetch()} />
 
   return (
     <PageContainer className="grid gap-8 py-8 lg:grid-cols-[310px_1fr]">

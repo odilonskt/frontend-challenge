@@ -8,6 +8,10 @@ export class UserRepository {
     this.store = store
   }
 
+  all() {
+    return this.store.read((s) => s.users)
+  }
+
   findById(id: string) {
     return this.store.read((s) => s.users.find((u) => u.id === id) ?? null)
   }
@@ -64,6 +68,13 @@ export class SessionRepository {
   delete(token: string) {
     this.store.write((s) => {
       s.sessions = s.sessions.filter((x) => x.token !== token)
+    })
+  }
+
+  /** Signs a user out everywhere — used when an admin suspends their account (FR-009). */
+  deleteByUserId(userId: string) {
+    this.store.write((s) => {
+      s.sessions = s.sessions.filter((x) => x.userId !== userId)
     })
   }
 

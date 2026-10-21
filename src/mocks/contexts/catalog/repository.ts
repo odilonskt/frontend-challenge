@@ -10,8 +10,34 @@ export class CatalogRepository {
     this.store = store
   }
 
+  /** Public browsing/search — excludes delisted NFTs (FR-007). */
   all(): Nft[] {
+    return this.store.read((s) => s.nfts.filter((n) => !s.delistedNftIds.includes(n.id)))
+  }
+
+  /** Admin view — includes delisted NFTs, so they remain manageable/re-listable. */
+  allIncludingDelisted(): Nft[] {
     return this.store.read((s) => s.nfts)
+  }
+
+  insert(nft: Nft) {
+    this.store.write((s) => {
+      s.nfts.push(nft)
+    })
+  }
+
+  isListed(id: string): boolean {
+    return this.store.read((s) => !s.delistedNftIds.includes(id))
+  }
+
+  setListed(id: string, listed: boolean): Nft | null {
+    return this.store.write((s) => {
+      const nft = s.nfts.find((n) => n.id === id)
+      if (!nft) return null
+      s.delistedNftIds = listed ? s.delistedNftIds.filter((x) => x !== id) : [...new Set([...s.delistedNftIds, id])]
+      nft.version += 1
+      return structuredClone(nft)
+    })
   }
 
   findById(id: string): Nft | null {

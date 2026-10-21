@@ -18,6 +18,8 @@ const homeSearchSchema = z.object({
   maxPrice: ethAmountSearch,
   sort: z.enum(CATALOG_SORTS).optional(),
   page: z.number().int().positive().optional(),
+  /** Set by `requireRole` when a non-admin is redirected away from an admin-only route. */
+  forbidden: z.literal(true).optional(),
 })
 
 export const Route = createFileRoute('/')({

@@ -14,9 +14,16 @@ import { Route as CartRouteImport } from './routes/cart'
 import { Route as CheckoutRouteImport } from './routes/checkout'
 import { Route as DesignSystemRouteImport } from './routes/design-system'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as MarketRouteImport } from './routes/market'
 import { Route as SignupRouteImport } from './routes/signup'
 import { Route as AccountProfileRouteImport } from './routes/account.profile'
 import { Route as AccountWalletsRouteImport } from './routes/account.wallets'
+import { Route as AdminProductsRouteImport } from './routes/admin.products'
+import { Route as AdminUsersRouteImport } from './routes/admin.users'
+import { Route as CreatorsIndexRouteImport } from './routes/creators.index'
+import { Route as CreatorsCreatorIdRouteImport } from './routes/creators.$creatorId'
+import { Route as LearnIndexRouteImport } from './routes/learn.index'
+import { Route as LearnSlugRouteImport } from './routes/learn.$slug'
 import { Route as NftNftIdRouteImport } from './routes/nft.$nftId'
 import { Route as OrdersOrderIdRouteImport } from './routes/orders.$orderId'
 
@@ -45,6 +52,11 @@ const LoginRoute = LoginRouteImport.update({
   path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
+const MarketRoute = MarketRouteImport.update({
+  id: '/market',
+  path: '/market',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SignupRoute = SignupRouteImport.update({
   id: '/signup',
   path: '/signup',
@@ -58,6 +70,36 @@ const AccountProfileRoute = AccountProfileRouteImport.update({
 const AccountWalletsRoute = AccountWalletsRouteImport.update({
   id: '/account/wallets',
   path: '/account/wallets',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminProductsRoute = AdminProductsRouteImport.update({
+  id: '/admin/products',
+  path: '/admin/products',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminUsersRoute = AdminUsersRouteImport.update({
+  id: '/admin/users',
+  path: '/admin/users',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CreatorsIndexRoute = CreatorsIndexRouteImport.update({
+  id: '/creators/',
+  path: '/creators/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CreatorsCreatorIdRoute = CreatorsCreatorIdRouteImport.update({
+  id: '/creators/$creatorId',
+  path: '/creators/$creatorId',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LearnIndexRoute = LearnIndexRouteImport.update({
+  id: '/learn/',
+  path: '/learn/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LearnSlugRoute = LearnSlugRouteImport.update({
+  id: '/learn/$slug',
+  path: '/learn/$slug',
   getParentRoute: () => rootRouteImport,
 } as any)
 const NftNftIdRoute = NftNftIdRouteImport.update({
@@ -77,11 +119,18 @@ export interface FileRoutesByFullPath {
   '/checkout': typeof CheckoutRoute
   '/design-system': typeof DesignSystemRoute
   '/login': typeof LoginRoute
+  '/market': typeof MarketRoute
   '/signup': typeof SignupRoute
   '/account/profile': typeof AccountProfileRoute
   '/account/wallets': typeof AccountWalletsRoute
+  '/admin/products': typeof AdminProductsRoute
+  '/admin/users': typeof AdminUsersRoute
+  '/creators/$creatorId': typeof CreatorsCreatorIdRoute
+  '/learn/$slug': typeof LearnSlugRoute
   '/nft/$nftId': typeof NftNftIdRoute
   '/orders/$orderId': typeof OrdersOrderIdRoute
+  '/creators/': typeof CreatorsIndexRoute
+  '/learn/': typeof LearnIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -89,11 +138,18 @@ export interface FileRoutesByTo {
   '/checkout': typeof CheckoutRoute
   '/design-system': typeof DesignSystemRoute
   '/login': typeof LoginRoute
+  '/market': typeof MarketRoute
   '/signup': typeof SignupRoute
   '/account/profile': typeof AccountProfileRoute
   '/account/wallets': typeof AccountWalletsRoute
+  '/admin/products': typeof AdminProductsRoute
+  '/admin/users': typeof AdminUsersRoute
+  '/creators/$creatorId': typeof CreatorsCreatorIdRoute
+  '/learn/$slug': typeof LearnSlugRoute
   '/nft/$nftId': typeof NftNftIdRoute
   '/orders/$orderId': typeof OrdersOrderIdRoute
+  '/creators': typeof CreatorsIndexRoute
+  '/learn': typeof LearnIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -102,11 +158,18 @@ export interface FileRoutesById {
   '/checkout': typeof CheckoutRoute
   '/design-system': typeof DesignSystemRoute
   '/login': typeof LoginRoute
+  '/market': typeof MarketRoute
   '/signup': typeof SignupRoute
   '/account/profile': typeof AccountProfileRoute
   '/account/wallets': typeof AccountWalletsRoute
+  '/admin/products': typeof AdminProductsRoute
+  '/admin/users': typeof AdminUsersRoute
+  '/creators/$creatorId': typeof CreatorsCreatorIdRoute
+  '/learn/$slug': typeof LearnSlugRoute
   '/nft/$nftId': typeof NftNftIdRoute
   '/orders/$orderId': typeof OrdersOrderIdRoute
+  '/creators/': typeof CreatorsIndexRoute
+  '/learn/': typeof LearnIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -116,11 +179,18 @@ export interface FileRouteTypes {
     | '/checkout'
     | '/design-system'
     | '/login'
+    | '/market'
     | '/signup'
     | '/account/profile'
     | '/account/wallets'
+    | '/admin/products'
+    | '/admin/users'
+    | '/creators/$creatorId'
+    | '/learn/$slug'
     | '/nft/$nftId'
     | '/orders/$orderId'
+    | '/creators/'
+    | '/learn/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -128,11 +198,18 @@ export interface FileRouteTypes {
     | '/checkout'
     | '/design-system'
     | '/login'
+    | '/market'
     | '/signup'
     | '/account/profile'
     | '/account/wallets'
+    | '/admin/products'
+    | '/admin/users'
+    | '/creators/$creatorId'
+    | '/learn/$slug'
     | '/nft/$nftId'
     | '/orders/$orderId'
+    | '/creators'
+    | '/learn'
   id:
     | '__root__'
     | '/'
@@ -140,11 +217,18 @@ export interface FileRouteTypes {
     | '/checkout'
     | '/design-system'
     | '/login'
+    | '/market'
     | '/signup'
     | '/account/profile'
     | '/account/wallets'
+    | '/admin/products'
+    | '/admin/users'
+    | '/creators/$creatorId'
+    | '/learn/$slug'
     | '/nft/$nftId'
     | '/orders/$orderId'
+    | '/creators/'
+    | '/learn/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -153,11 +237,18 @@ export interface RootRouteChildren {
   CheckoutRoute: typeof CheckoutRoute
   DesignSystemRoute: typeof DesignSystemRoute
   LoginRoute: typeof LoginRoute
+  MarketRoute: typeof MarketRoute
   SignupRoute: typeof SignupRoute
   AccountProfileRoute: typeof AccountProfileRoute
   AccountWalletsRoute: typeof AccountWalletsRoute
+  AdminProductsRoute: typeof AdminProductsRoute
+  AdminUsersRoute: typeof AdminUsersRoute
+  CreatorsCreatorIdRoute: typeof CreatorsCreatorIdRoute
+  LearnSlugRoute: typeof LearnSlugRoute
   NftNftIdRoute: typeof NftNftIdRoute
   OrdersOrderIdRoute: typeof OrdersOrderIdRoute
+  CreatorsIndexRoute: typeof CreatorsIndexRoute
+  LearnIndexRoute: typeof LearnIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -197,6 +288,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/market': {
+      id: '/market'
+      path: '/market'
+      fullPath: '/market'
+      preLoaderRoute: typeof MarketRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/signup': {
       id: '/signup'
       path: '/signup'
@@ -216,6 +314,48 @@ declare module '@tanstack/react-router' {
       path: '/account/wallets'
       fullPath: '/account/wallets'
       preLoaderRoute: typeof AccountWalletsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/products': {
+      id: '/admin/products'
+      path: '/admin/products'
+      fullPath: '/admin/products'
+      preLoaderRoute: typeof AdminProductsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/users': {
+      id: '/admin/users'
+      path: '/admin/users'
+      fullPath: '/admin/users'
+      preLoaderRoute: typeof AdminUsersRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/creators/': {
+      id: '/creators/'
+      path: '/creators'
+      fullPath: '/creators/'
+      preLoaderRoute: typeof CreatorsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/creators/$creatorId': {
+      id: '/creators/$creatorId'
+      path: '/creators/$creatorId'
+      fullPath: '/creators/$creatorId'
+      preLoaderRoute: typeof CreatorsCreatorIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/learn/': {
+      id: '/learn/'
+      path: '/learn'
+      fullPath: '/learn/'
+      preLoaderRoute: typeof LearnIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/learn/$slug': {
+      id: '/learn/$slug'
+      path: '/learn/$slug'
+      fullPath: '/learn/$slug'
+      preLoaderRoute: typeof LearnSlugRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/nft/$nftId': {
@@ -241,11 +381,18 @@ const rootRouteChildren: RootRouteChildren = {
   CheckoutRoute: CheckoutRoute,
   DesignSystemRoute: DesignSystemRoute,
   LoginRoute: LoginRoute,
+  MarketRoute: MarketRoute,
   SignupRoute: SignupRoute,
   AccountProfileRoute: AccountProfileRoute,
   AccountWalletsRoute: AccountWalletsRoute,
+  AdminProductsRoute: AdminProductsRoute,
+  AdminUsersRoute: AdminUsersRoute,
+  CreatorsCreatorIdRoute: CreatorsCreatorIdRoute,
+  LearnSlugRoute: LearnSlugRoute,
   NftNftIdRoute: NftNftIdRoute,
   OrdersOrderIdRoute: OrdersOrderIdRoute,
+  CreatorsIndexRoute: CreatorsIndexRoute,
+  LearnIndexRoute: LearnIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

@@ -3,12 +3,15 @@ import { cartQueries } from '@/domains/cart'
 import { PageContainer } from '@/shared/ui/page-container'
 import { Skeleton } from '@/shared/ui/skeleton'
 import { CartLineList } from './components/CartLineList'
+import { CartLoadError } from './components/CartLoadError'
 import { CartSummary } from './components/CartSummary'
 import { EmptyCart } from './components/EmptyCart'
 import { RelatedNfts } from './components/RelatedNfts'
 
 export function CartPage() {
   const cart = useQuery(cartQueries.view())
+
+  if (cart.isError) return <CartLoadError onRetry={() => void cart.refetch()} />
 
   return (
     <PageContainer className="flex flex-col gap-10 py-8">

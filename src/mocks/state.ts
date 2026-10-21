@@ -1,5 +1,7 @@
 import type { Nft } from '@/domains/catalog'
 import type { Order } from '@/domains/orders'
+import type { UserAccountStatus } from '@/domains/admin'
+import type { UserRole } from '@/domains/auth'
 import type { EnsTld } from '@/domains/profile'
 import type { Wallet } from '@/domains/wallets'
 import type { EthAmount } from '@/shared/lib/eth'
@@ -20,6 +22,8 @@ export interface UserRecord {
   passwordSalt: string
   passwordHash: string
   updatedAt: string
+  role: UserRole
+  status: UserAccountStatus
 }
 
 export interface SessionRecord {
@@ -57,6 +61,8 @@ export interface MockState {
   users: UserRecord[]
   sessions: SessionRecord[]
   nfts: Nft[]
+  /** NFTs removed from the public storefront by an admin (FR-007) — kept in `nfts` for order history. */
+  delistedNftIds: string[]
   favorites: Record<string, string[]>
   carts: Record<string, CartRecord>
   wallets: Record<string, Wallet[]>
@@ -72,6 +78,7 @@ export function createInitialState(): MockState {
     users,
     sessions: [],
     nfts: buildNftFixtures(),
+    delistedNftIds: [],
     favorites,
     carts: {},
     wallets,

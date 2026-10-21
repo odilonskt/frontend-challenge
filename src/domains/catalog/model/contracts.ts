@@ -73,13 +73,13 @@ export interface NftSummary {
   totalAvailable: number
   featured: boolean
   createdAt: string
+  collection: string
   /** Monotonic version, bumped on every price/availability change (matches `nft.updated`). */
   version: number
 }
 
 export interface Nft extends NftSummary {
   description: string
-  collection: string
   tags: string[]
   gallery: NftImage[]
   editions: NftEdition[]

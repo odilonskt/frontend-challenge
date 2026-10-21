@@ -1,9 +1,12 @@
+export type UserRole = 'collector' | 'admin'
+
 export interface SessionUser {
   id: string
   name: string
   email: string
   username: string
   avatarUrl: string | null
+  role: UserRole
 }
 
 export interface Session {

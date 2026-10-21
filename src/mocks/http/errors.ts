@@ -31,6 +31,7 @@ export const errors = {
   sessionExpired: () => new DomainError(401, 'SESSION_EXPIRED', 'Sua sessão expirou. Entre novamente.'),
   invalidCredentials: () => new DomainError(401, 'INVALID_CREDENTIALS', 'E-mail ou senha incorretos.'),
   forbidden: () => new DomainError(403, 'FORBIDDEN', 'Você não tem permissão para acessar este recurso.'),
+  accountSuspended: () => new DomainError(403, 'FORBIDDEN', 'Esta conta foi suspensa.'),
   notFound: (resource: string) => new DomainError(404, 'NOT_FOUND', `${resource} não encontrado.`),
   conflict: (message: string, fields?: Record<string, string>) => new DomainError(409, 'CONFLICT', message, fields),
   availability: (message: string, details?: unknown) =>

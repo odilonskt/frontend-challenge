@@ -3,9 +3,16 @@ import { AuthService } from './contexts/auth/service'
 import { identityResolverFor } from './contexts/auth/realtime-identity'
 import { authHandlers } from './contexts/auth/handlers'
 import { SessionRepository, UserRepository } from './contexts/auth/repository'
+import { adminHandlers } from './contexts/admin/handlers'
+import { AdminService } from './contexts/admin/service'
 import { catalogHandlers } from './contexts/catalog/handlers'
 import { CatalogRepository } from './contexts/catalog/repository'
 import { CatalogService } from './contexts/catalog/service'
+import { creatorsHandlers } from './contexts/creators/handlers'
+import { CreatorsRepository } from './contexts/creators/repository'
+import { CreatorsService } from './contexts/creators/service'
+import { mediaGenerationHandlers } from './contexts/media-generation/handlers'
+import { MediaGenerationService } from './contexts/media-generation/service'
 import { CartRepository } from './contexts/cart/repository'
 import { CartService } from './contexts/cart/service'
 import { cartHandlers } from './contexts/cart/handlers'
@@ -36,6 +43,9 @@ const catalogRepository = new CatalogRepository(store)
 const realtime = new MockRealtimeServer(new URL(env.socketUrl, location.origin).origin, identityResolverFor(auth))
 
 const catalog = new CatalogService(catalogRepository, realtime, () => scenarioRuntime.current.emptyCatalog === true)
+const creators = new CreatorsService(new CreatorsRepository(catalogRepository))
+const admin = new AdminService(catalogRepository, catalog, users, sessions)
+const mediaGeneration = new MediaGenerationService()
 const cartRepository = new CartRepository(store)
 const cart = new CartService(cartRepository, catalogRepository, clock)
 const favorites = new FavoritesService(new FavoritesRepository(store), catalogRepository)
@@ -75,6 +85,9 @@ orders.resumePending()
 export const handlers = [
   ...authHandlers(API, auth),
   ...catalogHandlers(API, catalog),
+  ...creatorsHandlers(API, creators),
+  ...adminHandlers(API, admin, auth),
+  ...mediaGenerationHandlers(API, mediaGeneration),
   ...favoritesHandlers(API, auth, favorites),
   ...cartHandlers(API, auth, cart),
   ...walletHandlers(API, auth, wallets),
@@ -92,4 +105,6 @@ export const mockControls = {
   },
   realtime,
   settleAllOrders: () => orders.settleAllNow(),
+  /** Test-only: promotes a user to admin without going through signup (which never can, by design). */
+  setRole: (userId: string, role: 'collector' | 'admin') => users.update(userId, { role }),
 }

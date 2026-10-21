@@ -1,11 +1,12 @@
 <!--
 Sync Impact Report
-- Version change: (template não preenchido) → 1.0.0
-- Modified principles: nenhum (primeira adoção; todos os princípios são novos)
-- Added sections: Core Principles I–VII, Restrições Técnicas e de Escopo,
-  Fluxo de Desenvolvimento e Qualidade, Governance
+- Version change: 1.0.0 → 1.1.0
+- Modified principles: nenhum (nenhum princípio existente foi removido ou redefinido de forma
+  incompatível; Princípio V e a tabela de "Stack obrigatória" continuam valendo integralmente
+  para tudo em `src/` — a mudança abaixo é uma exceção aditiva, escopada a um diretório novo)
+- Added sections: "Exceção Pontual: Backend Real de Moedas da Plataforma (`server/`)"
 - Removed sections: nenhum
-- Follow-up TODOs: nenhum (RATIFICATION_DATE definida como a data da primeira adoção)
+- Follow-up TODOs: nenhum
 -->
 # NFT Marketplace Constitution
 
@@ -82,6 +83,39 @@ auditado com Lighthouse (`pnpm lighthouse`).
   perfil, carteiras, favoritos e pedidos exigem autenticação.
 - Recibos MUST reproduzir o snapshot do pedido, imutável a mudanças posteriores no catálogo.
 
+## Exceção Pontual: Backend Real de Moedas da Plataforma (`server/`)
+
+Esta seção abre uma exceção explícita, aditiva e escopada ao Princípio V e à tabela de "Stack
+obrigatória" acima — que continuam valendo integralmente para tudo dentro de `src/` (a SPA React).
+Nada no restante da constituição muda; esta exceção existe apenas para a feature de "moedas da
+plataforma" (coins), uma moeda nativa alternativa ao fluxo de pagamento via carteira/ETH já
+existente, que o time decidiu implementar com persistência real em vez de simulada.
+
+- Um novo diretório de nível raiz `server/` é permitido como um serviço de backend **real**,
+  adicional e independente — com seu próprio `package.json`/stack, deliberadamente **não**
+  integrado ao workspace pnpm do frontend — usado exclusivamente para o saldo de moedas, o
+  top-up simulado (compra de moedas) e o débito/estorno de moedas no checkout.
+- `server/` é explicitamente isento da regra "toda simulação MUST residir em `src/mocks`"
+  (Princípio V): ele não é uma simulação, é um backend de verdade com persistência real via SQLite
+  (ex.: `better-sqlite3`).
+- Stack permitida dentro de `server/`, e apenas dentro dele: Node.js, TypeScript, Express
+  (escolhido deliberadamente por simplicidade — NestJS ou outro framework mais pesado MUST NOT ser
+  usado aqui), um driver SQLite, e bibliotecas mínimas de apoio (ex. `cors`, `zod` para validação).
+  Ferramentas de monorepo (Nx, Turborepo ou equivalentes) MUST NOT ser introduzidas só por causa
+  deste diretório.
+- Modelo de identidade: como o projeto não tem autenticação real (login/sessão continuam
+  inteiramente simulados no frontend via MSW, sem mudança), o backend de moedas confia no id de
+  usuário que o frontend envia (ex. via header), sem validá-lo contra nenhuma autoridade real. Isso
+  é uma simplificação assumida, aceitável apenas por não envolver dinheiro real nem dados sensíveis
+  reais, e MUST ficar documentada como limitação conhecida (no README do `server/` e na spec da
+  feature), nunca escondida ou apresentada como um modelo de segurança real.
+- Os testes Playwright/e2e do projeto MUST continuar rodando inteiramente contra os mocks
+  existentes (MSW/`src/mocks`) — `server/` não entra no fluxo de testes determinístico padrão
+  (Princípio VII) e precisa de sua própria estratégia de verificação, documentada separadamente.
+- Qualquer expansão futura desta exceção (ex.: mover mais funcionalidades para um backend real)
+  exige uma nova emenda explícita a esta constituição, não uma extensão silenciosa do escopo aqui
+  definido.
+
 ## Fluxo de Desenvolvimento e Qualidade
 
 - Cada mudança segue o fluxo Spec Kit: especificação → plano → tarefas → implementação.
@@ -102,4 +136,4 @@ expansão material; PATCH para esclarecimentos e correções de redação. Revis
 `/speckit-analyze` MUST verificar conformidade; regras de fronteira (Princípio I) são impostas
 automaticamente por `pnpm lint`. Orientação de uso diário: `docs/TEAMS.md` e `docs/CHALLENGE.md`.
 
-**Version**: 1.0.0 | **Ratified**: 2026-10-14 | **Last Amended**: 2026-10-14
+**Version**: 1.1.0 | **Ratified**: 2026-10-14 | **Last Amended**: 2026-10-21

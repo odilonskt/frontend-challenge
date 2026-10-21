@@ -1,5 +1,5 @@
 import { Link, Outlet, createRootRouteWithContext } from '@tanstack/react-router'
-import { useSession } from '@/domains/auth'
+import { useAuthErrorRedirect, useSession } from '@/domains/auth'
 import { useCartCount } from '@/domains/cart'
 import { useCatalogRealtimeSync } from '@/domains/catalog'
 import { Button } from '@/shared/ui/button'
@@ -17,6 +17,8 @@ export const Route = createRootRouteWithContext<RouterContext>()({
 function RootLayout() {
   // Global so catalog data stays live everywhere it's cached (detail, search, featured).
   useCatalogRealtimeSync()
+  // Global so an expired/invalid session anywhere redirects to login instead of a raw load failure.
+  useAuthErrorRedirect()
 
   return (
     <>

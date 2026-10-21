@@ -5,7 +5,7 @@ export interface NavItem {
   label: string
   icon: IconComponent
   /** Existing route, or null while the destination is out of scope / not built. */
-  to: '/' | '/account/profile' | '/cart' | null
+  to: '/' | '/account/profile' | '/cart' | '/market' | '/creators' | '/learn' | null
   /** False when `to` is null: rendered disabled, never as a working link. */
   enabled: boolean
   placement: ReadonlyArray<'navbar' | 'dock'>
@@ -14,9 +14,9 @@ export interface NavItem {
 /** Single source for Navbar and Dock so both always agree (specs/001-design-system-standards/data-model.md). */
 export const NAV_ITEMS: readonly NavItem[] = [
   { id: 'home', label: 'Início', icon: HomeIcon, to: '/', enabled: true, placement: ['navbar', 'dock'] },
-  { id: 'market', label: 'Mercado', icon: MarketIcon, to: null, enabled: false, placement: ['navbar', 'dock'] },
-  { id: 'creators', label: 'Criadores', icon: ProfileIcon, to: null, enabled: false, placement: ['navbar'] },
-  { id: 'learn', label: 'Aprenda', icon: HomeIcon, to: null, enabled: false, placement: ['navbar'] },
+  { id: 'market', label: 'Mercado', icon: MarketIcon, to: '/market', enabled: true, placement: ['navbar', 'dock'] },
+  { id: 'creators', label: 'Criadores', icon: ProfileIcon, to: '/creators', enabled: true, placement: ['navbar'] },
+  { id: 'learn', label: 'Aprenda', icon: HomeIcon, to: '/learn', enabled: true, placement: ['navbar'] },
   { id: 'cart', label: 'Carrinho', icon: CartIcon, to: '/cart', enabled: true, placement: ['dock'] },
   { id: 'favorites', label: 'Favoritos', icon: HeartIcon, to: null, enabled: false, placement: ['dock'] },
   { id: 'account', label: 'Conta', icon: ProfileIcon, to: '/account/profile', enabled: true, placement: ['dock'] },

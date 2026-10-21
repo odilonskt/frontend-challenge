@@ -18,6 +18,7 @@ export const toSessionUser = (user: UserRecord): SessionUser => ({
   email: user.email,
   username: user.username,
   avatarUrl: user.avatarUrl,
+  role: user.role,
 })
 
 export class AuthService {
@@ -62,6 +63,9 @@ export class AuthService {
       passwordSalt: salt,
       passwordHash: hash,
       updatedAt: new Date(this.clock.now()).toISOString(),
+      // Self-serve signup can never create an administrator (FR-002).
+      role: 'collector',
+      status: 'active',
     }
     this.users.insert(user)
     return this.openSession(user)
@@ -78,6 +82,7 @@ export class AuthService {
     if (!user || !(await verifyPassword(input.password, user.passwordSalt, user.passwordHash))) {
       throw errors.invalidCredentials()
     }
+    if (user.status === 'suspended') throw errors.accountSuspended()
     return this.openSession(user)
   }
 

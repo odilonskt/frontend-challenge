@@ -3,7 +3,11 @@ import { expect, type Page } from '@playwright/test'
 
 declare global {
   interface Window {
-    __nftMock?: { scenario: { select: (id: string) => void }; settleAllOrders: () => void }
+    __nftMock?: {
+      scenario: { select: (id: string) => void }
+      settleAllOrders: () => void
+      setRole: (userId: string, role: 'collector' | 'admin') => void
+    }
   }
 }
 
@@ -41,6 +45,21 @@ export async function hasNoHorizontalScroll(page: Page) {
 /** Selects a mock scenario (src/mocks/scenarios/definitions.ts) via the devtools control surface. */
 export async function selectScenario(page: Page, scenarioId: string) {
   await page.evaluate((id) => window.__nftMock?.scenario.select(id), scenarioId)
+}
+
+/**
+ * Promotes the currently signed-in test user to admin via the devtools-only `setRole` hook —
+ * signup itself can never create an admin by design, so tests that need one sign up a fresh
+ * throwaway collector (via `signIn`) and flip their role here, rather than sharing the fixture
+ * `usr_ana` admin account across parallel test workers.
+ */
+export async function promoteCurrentUserToAdmin(page: Page) {
+  const token = await page.evaluate((key) => localStorage.getItem(key), SESSION_KEY)
+  await page.evaluate(async (authToken) => {
+    const response = await fetch('/api/session', { headers: { Authorization: `Bearer ${authToken}` } })
+    const session = (await response.json()) as { user: { id: string } }
+    window.__nftMock?.setRole(session.user.id, 'admin')
+  }, token)
 }
 
 /** Settles every pending order immediately instead of waiting for the simulated delay. */

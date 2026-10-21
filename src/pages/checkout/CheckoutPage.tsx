@@ -10,6 +10,7 @@ import { isApiError } from '@/shared/api/http'
 import { Button } from '@/shared/ui/button'
 import { PageContainer } from '@/shared/ui/page-container'
 import { Skeleton } from '@/shared/ui/skeleton'
+import { CheckoutLoadError } from './components/CheckoutLoadError'
 import { CollectorForm, useCollectorForm, type CollectorFormValues } from './components/CollectorForm'
 import { OrderSummary } from './components/OrderSummary'
 import { WalletPicker } from './components/WalletPicker'
@@ -57,7 +58,21 @@ export function CheckoutPage() {
       void navigate({ to: '/orders/$orderId', params: { orderId: order.id } })
     } catch (error) {
       toast.error(isApiError(error) ? error.message : 'Não foi possível confirmar a compra.')
+      // A stale-quote rejection (price/stock changed server-side) must update what's on screen,
+      // not just the toast — otherwise the user "reviews" a total that's already wrong.
+      void quote.refetch()
     }
+  }
+
+  if (cart.isError || quote.isError) {
+    return (
+      <CheckoutLoadError
+        onRetry={() => {
+          void cart.refetch()
+          void quote.refetch()
+        }}
+      />
+    )
   }
 
   return (

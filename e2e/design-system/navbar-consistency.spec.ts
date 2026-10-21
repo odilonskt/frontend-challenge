@@ -11,7 +11,7 @@ for (const route of ROUTES) {
     const nav = page.getByRole('navigation', { name: 'Principal' })
     await expect(nav).toBeVisible()
     await expect(nav.getByText('Início')).toBeVisible()
-    await expect(nav.getByText('Mercado')).toHaveAttribute('aria-disabled', 'true')
+    await expect(nav.getByRole('link', { name: 'Mercado' })).toHaveAttribute('href', '/market')
     await expect(page.getByRole('link', { name: 'Kurio, página inicial' })).toBeVisible()
   })
 }

@@ -14,7 +14,9 @@
     "test:e2e:update": "playwright test --update-snapshots",
     "test:e2e:report": "playwright show-report",
     "lighthouse": "node scripts/lighthouse.mjs",
-    "generate:art": "node scripts/generate-art.mjs"
+    "generate:art": "node scripts/generate-art.mjs",
+    "dev:coins-server": "pnpm --dir server dev",
+    "dev:all": "concurrently -n web,coins -c blue,green \"pnpm dev\" \"pnpm dev:coins-server\""
   },
   "dependencies": {
     "@fontsource/space-mono": "^5.3.0",
@@ -38,7 +40,6 @@
   },
   "devDependencies": {
     "@mswjs/socket.io-binding": "^0.2.0",
-    "axe-core": "^4.14.0",
     "@playwright/test": "^1.64.0",
     "@tailwindcss/vite": "^4.3.3",
     "@tanstack/react-query-devtools": "^5.104.1",
@@ -47,6 +48,8 @@
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.7",
     "@vitejs/plugin-react": "^6.1.1",
+    "axe-core": "^4.14.0",
+    "concurrently": "^10.0.6",
     "lighthouse": "^13.5.0",
     "msw": "^2.15.0",
     "oxlint": "^1.81.0",

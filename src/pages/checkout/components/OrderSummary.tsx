@@ -34,7 +34,7 @@ export function OrderSummary({ quote }: { quote: Quote }) {
         </ul>
       )}
 
-      <dl className="flex flex-col gap-2 text-body">
+      <dl className="flex flex-col gap-2 text-body" aria-live="polite">
         <div className="flex justify-between">
           <dt className="text-muted-foreground">Subtotal</dt>
           <dd>{eth.format(quote.subtotal)}</dd>
