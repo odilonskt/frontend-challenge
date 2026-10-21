@@ -5,4 +5,6 @@ export const env = {
   /** MSW is enabled by configuration (dev, demo build and tests), never by code paths in the app. */
   enableMocks: (import.meta.env.VITE_ENABLE_MOCKS ?? 'true') === 'true',
   requestTimeoutMs: Number(import.meta.env.VITE_REQUEST_TIMEOUT_MS ?? 8000),
+  /** Real (not mocked) backend for the platform-coins feature — see specs/006-platform-coins. */
+  coinsApiUrl: import.meta.env.VITE_COINS_API_URL ?? 'http://localhost:4000',
 } as const

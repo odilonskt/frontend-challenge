@@ -63,7 +63,7 @@ confirmar que o saldo continua correto.
 
 ### Implementation for User Story 1
 
-- [ ] T005 [US1] Create `server/src/db.ts`: conexão `node:sqlite` (`DatabaseSync`) com `server/data/coins.db`
+- [X] T005 [US1] Create `server/src/db.ts`: conexão `node:sqlite` (`DatabaseSync`) com `server/data/coins.db`
       (cria o diretório `data/` se não existir) e migração idempotente no boot
       (`CREATE TABLE IF NOT EXISTS`) para as 3 tabelas exatas de `data-model.md`/`research.md` D4:
       `users(id TEXT PRIMARY KEY, created_at TEXT NOT NULL DEFAULT (datetime('now')))`;
@@ -71,52 +71,52 @@ confirmar que o saldo continua correto.
       DEFAULT 0 CHECK (balance >= 0))`; `coin_transactions(id TEXT PRIMARY KEY, user_id TEXT NOT
       NULL, type TEXT NOT NULL CHECK (type IN ('topup','debit','refund')), amount INTEGER NOT NULL
       CHECK (amount > 0), order_ref TEXT, created_at TEXT NOT NULL DEFAULT (datetime('now')))`.
-- [ ] T006 [US1] Create `server/src/middleware/identity.ts`: lê o header `X-User-Id`; responde
+- [X] T006 [US1] Create `server/src/middleware/identity.ts`: lê o header `X-User-Id`; responde
       `401` se ausente; na primeira vez que vê um id, faz
       `INSERT OR IGNORE INTO users (id) VALUES (?)` seguido de
       `INSERT OR IGNORE INTO coin_balances (user_id, balance) VALUES (?, 0)`; anexa o `userId`
       resolvido ao `request` para as rotas usarem (depends on T005).
-- [ ] T007 [US1] Create `server/src/routes/coins.ts` com as duas rotas desta história:
+- [X] T007 [US1] Create `server/src/routes/coins.ts` com as duas rotas desta história:
       `GET /coins/balance` → `200 { userId, balance }`; `POST /coins/topup` com corpo validado via
       `zod` (`amount` MUST ser um inteiro positivo — rejeitar com `400` caso contrário, contrato
       exato em `contracts/coins-api.md`) → dentro de uma `db.transaction()`, insere uma linha em
       `coin_transactions` (`type: 'topup'`), incrementa `coin_balances.balance`, responde
       `201 { userId, balance, transactionId }` (depends on T005, T006).
-- [ ] T008 [US1] Create `server/src/app.ts`: `express()` com `express.json()`, `cors()` (origem do
+- [X] T008 [US1] Create `server/src/app.ts`: `express()` com `express.json()`, `cors()` (origem do
       Vite dev), o middleware de identidade montado antes do router de coins, o router de
       `coins.ts` montado em `/coins`, e um middleware final de tratamento de erro que responde um
       formato JSON consistente (depends on T006, T007).
-- [ ] T009 [US1] Create `server/src/server.ts`: cria o app (T008), escuta em
+- [X] T009 [US1] Create `server/src/server.ts`: cria o app (T008), escuta em
       `process.env.PORT ?? 4000`, loga a URL de escuta (depends on T008).
-- [ ] T010 [US1] Create `server/README.md`: instruções de setup/execução, e a documentação
+- [X] T010 [US1] Create `server/README.md`: instruções de setup/execução, e a documentação
       explícita (exigida pela constituição v1.1.0) de que o modelo de identidade confia no
       `X-User-Id` enviado pelo cliente sem validação real — é uma simplificação aceita, não um
       modelo de segurança real — e como rodar `server/scripts/smoke-test.mjs`.
-- [ ] T011 [P] [US1] Create `src/domains/coins/model/contracts.ts`: `CoinBalance { userId: string,
+- [X] T011 [P] [US1] Create `src/domains/coins/model/contracts.ts`: `CoinBalance { userId: string,
       balance: number }`, `CoinTransaction { id: string, type: 'topup'|'debit'|'refund', amount:
       number, orderRef?: string, createdAt: string }`, `export const ETH_TO_COINS_RATE = 1000`
       (data-model.md).
-- [ ] T012 [US1] In `src/shared/config/env.ts`, add
+- [X] T012 [US1] In `src/shared/config/env.ts`, add
       `coinsApiUrl: import.meta.env.VITE_COINS_API_URL ?? 'http://localhost:4000'`, following the
       exact existing pattern of the other `env` fields.
-- [ ] T013 [US1] Create `src/domains/coins/api/client.ts`: uma instância Axios própria
+- [X] T013 [US1] Create `src/domains/coins/api/client.ts`: uma instância Axios própria
       (`axios.create({ baseURL: env.coinsApiUrl, headers: { 'Content-Type': 'application/json' }
       })`) — nunca reaproveitar `src/shared/api/http.ts` (depends on T012).
-- [ ] T014 [US1] Create `src/domains/coins/api/queries.ts`: `useCoinsBalance()` e
+- [X] T014 [US1] Create `src/domains/coins/api/queries.ts`: `useCoinsBalance()` e
       `useTopUpCoins()` — cada hook lê o id do usuário autenticado via `useSession()` (já existente
       em `@/domains/auth`) e envia `X-User-Id: <id>` em cada chamada; `useCoinsBalance` fica
       `enabled: false` enquanto não houver sessão; `useTopUpCoins`, ao suceder, atualiza o cache da
       query de saldo com o valor já retornado pela resposta (sem exigir um refetch — FR-003)
       (depends on T011, T013).
-- [ ] T015 [US1] Create `src/domains/coins/index.ts` (exporta contratos + os dois hooks) e
+- [X] T015 [US1] Create `src/domains/coins/index.ts` (exporta contratos + os dois hooks) e
       `src/domains/coins/README.md` (escopo: backend real em `server/`, não um mock) (depends on
       T011, T014).
-- [ ] T016 [US1] Create `src/pages/wallets/components/CoinsBalanceSection.tsx`: mostra o saldo
+- [X] T016 [US1] Create `src/pages/wallets/components/CoinsBalanceSection.tsx`: mostra o saldo
       atual (estados de carregamento/erro) e um campo de valor + botão de recarga, usando os hooks
       de T014 (depends on T015).
-- [ ] T017 [US1] Wire `<CoinsBalanceSection />` into `src/pages/wallets/WalletsPage.tsx`, junto da
+- [X] T017 [US1] Wire `<CoinsBalanceSection />` into `src/pages/wallets/WalletsPage.tsx`, junto da
       carteira já existente (depends on T016).
-- [ ] T018 [US1] Create `server/scripts/smoke-test.mjs`: script Node standalone que faz requisições
+- [X] T018 [US1] Create `server/scripts/smoke-test.mjs`: script Node standalone que faz requisições
       HTTP diretas contra um `server/` já rodando — recarrega duas vezes e confirma que o saldo
       acumula corretamente (`balance` cresce exatamente pela soma dos dois valores) (depends on
       T007, T008, T009).
@@ -137,7 +137,7 @@ e o saldo diminui pelo valor exato em coins do total do pedido.
 
 ### Implementation for User Story 2
 
-- [ ] T019 [US2] Extend `server/src/routes/coins.ts` (de T007): `POST /coins/debit { amount:
+- [X] T019 [US2] Extend `server/src/routes/coins.ts` (de T007): `POST /coins/debit { amount:
       number, orderRef?: string }` — dentro de uma `db.transaction()`, executa
       `UPDATE coin_balances SET balance = balance - ? WHERE user_id = ? AND balance >= ?` e checa
       `changes === 1`; se zero linhas afetadas, responde `409 { error: 'insufficient_balance',
@@ -146,11 +146,11 @@ e o saldo diminui pelo valor exato em coins do total do pedido.
       `200 { userId, balance, transactionId }` (contrato exato em `contracts/coins-api.md`;
       "insuficiente" significa estritamente menor que o necessário, per spec.md Edge Cases — um
       saldo exatamente igual ao valor MUST ser aceito).
-- [ ] T020 [US2] Extend `server/src/routes/coins.ts` (de T019): `POST /coins/refund { amount:
+- [X] T020 [US2] Extend `server/src/routes/coins.ts` (de T019): `POST /coins/refund { amount:
       number, orderRef?: string }` — mesmo padrão de `topup` (incrementa o saldo, insere linha
       `type: 'refund'`), usado apenas como compensação de um débito anterior que não completou uma
       compra (spec.md Edge Cases, FR-009), não como uma reversão de uso geral pelo colecionador.
-- [ ] T021 [US2] Extend `server/scripts/smoke-test.mjs` (de T018): adiciona os cenários de débito
+- [X] T021 [US2] Extend `server/scripts/smoke-test.mjs` (de T018): adiciona os cenários de débito
       com saldo suficiente (sucesso, saldo decresce corretamente), débito com saldo insuficiente
       (`409`, saldo inalterado) e estorno (saldo volta a subir pelo valor exato), confirmando a
       matemática do saldo em cada passo (depends on T019, T020).

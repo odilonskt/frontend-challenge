@@ -4,6 +4,7 @@ import { useWallets, WalletForm } from '@/domains/wallets'
 import { AccountSideMenu } from '@/shared/ui/account-side-menu'
 import { PageContainer } from '@/shared/ui/page-container'
 import { Skeleton } from '@/shared/ui/skeleton'
+import { CoinsBalanceSection } from './components/CoinsBalanceSection'
 import { SecondaryWalletSection } from './components/SecondaryWalletSection'
 import { WalletsLoadError } from './components/WalletsLoadError'
 
@@ -40,6 +41,8 @@ export function WalletsPage() {
         {wallets.data && <WalletForm key={primary?.id ?? 'new'} slot="primary" wallet={primary} />}
 
         {wallets.data && <SecondaryWalletSection primary={primary} secondary={secondary} />}
+
+        <CoinsBalanceSection />
       </section>
     </PageContainer>
   )
