@@ -1,33 +1,53 @@
 import { expect, test } from '@playwright/test'
-import { hasNoHorizontalScroll, runAxe, seedCartItem, SESSION_KEY, signIn, VIEWPORTS } from '../design-system/helpers'
+import { hasNoHorizontalScroll, runAxe, seedCartItem, SESSION_KEY, settleAllOrders, signIn, VIEWPORTS } from '../design-system/helpers'
+import { connectWallet, createWalletViaApi, openCheckout, reachReview } from './checkout-helpers'
 
-test('blocks submission while required fields are invalid', async ({ page }) => {
+test('prefills the collector from the profile', async ({ page }) => {
   await signIn(page)
   await seedCartItem(page)
-  await page.goto('/checkout')
-  await page.getByRole('button', { name: 'Confirmar compra' }).click()
-  await expect(page.getByText('Informe o nome completo.')).toBeVisible()
-  await expect(page).toHaveURL('/checkout')
+  await openCheckout(page)
+  await expect(page.getByLabel('Nome de exibição')).toHaveValue('Teste Design')
+  await expect(page.getByLabel('E-mail')).toHaveValue(/@nft\.dev$/)
 })
 
-test('completes checkout and reaches order confirmation', async ({ page }) => {
+test('blocks the review while required fields are invalid and focuses the first one', async ({ page }) => {
   await signIn(page)
   await seedCartItem(page)
-  await page.goto('/checkout')
+  await openCheckout(page)
+  await page.getByLabel('Nome de exibição').fill('')
+  await page.getByRole('button', { name: 'Revisar pedido' }).click()
+  await expect(page.getByText('Informe o nome completo.')).toBeVisible()
+  await expect(page.getByLabel('Nome de exibição')).toBeFocused()
+  await expect(page.getByRole('heading', { name: 'Revise seu pedido' })).toHaveCount(0)
+})
 
-  await page.getByLabel('Nome de exibição').fill('Ana Colecionadora')
-  await page.getByLabel('E-mail').fill('ana@nft.dev')
-  await page.getByLabel('Rede').selectOption('ethereum')
-  await page.getByLabel('Apelido da carteira').fill('Minha carteira')
-  await page.getByLabel('Tipo de carteira').selectOption('metamask')
-  await page.getByPlaceholder('Endereço 0x da carteira').fill(`0x${'1'.repeat(40)}`)
-  await page.getByLabel('Ethereum').check()
-  await page.getByRole('button', { name: 'Salvar carteira' }).click()
-  await expect(page.getByLabel(/Minha carteira/)).toBeVisible()
-  await page.getByLabel(/Minha carteira/).check()
+test('completes checkout: connect, review, confirm and reach the receipt', async ({ page }) => {
+  await signIn(page)
+  await createWalletViaApi(page)
+  await seedCartItem(page)
+  await reachReview(page)
 
+  await expect(page.getByText('Ethereum', { exact: true })).toBeVisible()
   await page.getByRole('button', { name: 'Confirmar compra' }).click()
+  await expect(page.getByRole('heading', { name: 'Processando pagamento' })).toBeVisible()
+
+  await settleAllOrders(page)
   await expect(page).toHaveURL(/\/orders\//, { timeout: 10_000 })
+})
+
+test('going back from the review keeps what was filled in', async ({ page }) => {
+  await signIn(page)
+  await createWalletViaApi(page)
+  await seedCartItem(page)
+  await openCheckout(page)
+  await page.getByLabel('Observação do colecionador (opcional)').fill('Presente para mim')
+  await connectWallet(page)
+  await page.getByRole('button', { name: 'Revisar pedido' }).click()
+  await expect(page.getByText('Presente para mim')).toBeVisible()
+
+  await page.getByRole('button', { name: 'Voltar e editar' }).click()
+  await expect(page.getByLabel('Observação do colecionador (opcional)')).toHaveValue('Presente para mim')
+  await expect(page.getByRole('combobox', { name: /^Rede/ })).toHaveValue('ethereum')
 })
 
 test('retrying the same idempotency key never creates a duplicate order', async ({ page }) => {
@@ -61,11 +81,15 @@ test('retrying the same idempotency key never creates a duplicate order', async 
   expect(firstOrderId).toBe(secondOrderId)
 })
 
-test('checkout has no critical accessibility violations', async ({ page }) => {
+test('checkout has no critical accessibility violations in the form and review steps', async ({ page }) => {
   await signIn(page)
+  await createWalletViaApi(page)
   await seedCartItem(page)
-  await page.goto('/checkout')
-  await expect(page.getByRole('heading', { name: 'Pagamento' })).toBeVisible()
+  await openCheckout(page)
+  expect(await runAxe(page)).toEqual([])
+  await connectWallet(page)
+  await page.getByRole('button', { name: 'Revisar pedido' }).click()
+  await expect(page.getByRole('heading', { name: 'Revise seu pedido' })).toBeFocused()
   expect(await runAxe(page)).toEqual([])
 })
 
@@ -76,8 +100,9 @@ for (const [name, viewport] of Object.entries(VIEWPORTS)) {
     test('checkout renders without horizontal scroll and matches its baseline', async ({ page }) => {
       await signIn(page)
       await seedCartItem(page)
-      await page.goto('/checkout')
-      await expect(page.getByRole('heading', { name: 'Pagamento' })).toBeVisible()
+      await openCheckout(page)
+      // The prefilled e-mail is unique per run; pin it so the baseline stays stable.
+      await page.getByLabel('E-mail').fill('ana@nft.dev')
       expect(await hasNoHorizontalScroll(page)).toBe(true)
       await expect(page).toHaveScreenshot(`checkout-${viewport.width}.png`, { fullPage: true })
     })

@@ -13,13 +13,15 @@ export const collectorSchema = z.object({
   email: z.email('Informe um e-mail válido.'),
   network: z.enum(NETWORKS, { error: 'Selecione uma rede.' }),
   note: z.string().max(280, 'Use no máximo 280 caracteres.').optional(),
+  walletId: z.string({ error: 'Selecione ou adicione uma carteira.' }).min(1, 'Selecione ou adicione uma carteira.'),
 })
 export type CollectorFormValues = z.infer<typeof collectorSchema>
 
 export function useCollectorForm(defaultValues?: Partial<CollectorFormValues>) {
   return useForm<CollectorFormValues>({
     resolver: zodResolver(collectorSchema),
-    defaultValues: { fullName: '', email: '', note: '', ...defaultValues },
+    shouldFocusError: true,
+    defaultValues: { fullName: '', email: '', note: '', walletId: '', ...defaultValues },
   })
 }
 
