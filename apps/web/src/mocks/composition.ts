@@ -24,6 +24,8 @@ import { ProfileService } from './contexts/profile/service'
 import { profileHandlers } from './contexts/profile/handlers'
 import { OrderRepository, OrderService, type OrderPolicy } from './contexts/orders/service'
 import { orderHandlers } from './contexts/orders/handlers'
+import { ledgerHandlers } from './contexts/ledger/handlers'
+import { LedgerService } from './contexts/ledger/service'
 import { DEFAULT_ORDER_SETTLE_MS, DEFAULT_SESSION_TTL_MS } from './scenarios/definitions'
 import { scenarioRuntime } from './scenarios/runtime'
 import { MockRealtimeServer } from './realtime/server'
@@ -31,6 +33,8 @@ import { store } from './state'
 import { systemClock } from './infra/store'
 
 const API = '/api'
+// The real Vercel/Blob backend (apps/api) is reached through `/backend/*`; in tests it is mocked here.
+const BACKEND = env.backendBaseUrl
 const clock = systemClock
 
 const users = new UserRepository(store)
@@ -51,6 +55,7 @@ const cart = new CartService(cartRepository, catalogRepository, clock)
 const favorites = new FavoritesService(new FavoritesRepository(store), catalogRepository)
 const wallets = new WalletService(new WalletRepository(store), clock, () => scenarioRuntime.current.walletRejects === true)
 const profile = new ProfileService(users, clock)
+const ledger = new LedgerService()
 
 let checkoutMutationApplied = false
 scenarioRuntime.subscribe(() => {
@@ -93,6 +98,9 @@ export const handlers = [
   ...walletHandlers(API, auth, wallets),
   ...profileHandlers(API, auth, profile),
   ...orderHandlers(API, auth, orders, () => scenarioRuntime.current.orderResponseDelayMs ?? 0),
+  // Only when backend mocks are on (dev, e2e). Production/preview turn them off so `/backend/*` reaches
+  // the real apps/api instead of being answered here (specs/008-web-production-env, FR-005).
+  ...(env.enableBackendMocks ? ledgerHandlers(BACKEND, ledger) : []),
   realtime.handler,
 ]
 
@@ -101,6 +109,7 @@ export const mockControls = {
   scenario: scenarioRuntime,
   reset: () => {
     store.reset()
+    ledger.reset()
     scenarioRuntime.restart()
   },
   realtime,

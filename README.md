@@ -47,6 +47,17 @@ Scripts só do frontend (rodar com `pnpm --dir apps/web <script>`):
 | `lighthouse` | Auditoria de desempenho e acessibilidade |
 | `generate:art` | Gera as ilustrações SVG em `public/art` |
 
+## Publicação (Vercel)
+
+O `apps/web` é publicado como projeto Vercel próprio, como um demo com mocks; `/backend/*` chega à API real
+(`apps/api`) por rewrite. Procedimento completo, variáveis por ambiente e verificações:
+`specs/008-web-production-env/quickstart.md`. Antes de publicar:
+
+```bash
+pnpm --dir apps/web check:production-bundle   # nenhum localhost:<porta> no bundle
+pnpm --dir apps/web test:e2e:production       # build de produção: moedas ocultas, CSP sem violações, /backend não mockado
+```
+
 ## Telas
 
 Início (catálogo, busca, filtros, ordenação), detalhe do NFT, carrinho, pagamento, confirmação do pedido, login, cadastro, perfil do colecionador e carteiras, além de 404 e de uma página interna `/design-system` com o catálogo visual de cores, tipografia, ícones e componentes.
@@ -96,6 +107,12 @@ Identidade baseada no tema escuro da marca, com fonte monoespaçada única (Spac
 | Foco e realces | `#CFB28C` |
 
 Tokens ficam em `src/index.css`; componentes em `src/shared/ui`. Em telas pequenas, a navegação principal vai para uma dock fixa inferior. Contratos completos em `specs/001-design-system-standards/contracts/`.
+
+## Publicação
+
+O `apps/web` vai para a Vercel como projeto próprio (demo com mocks; `/backend/*` chega à `apps/api`).
+Antes de publicar: `pnpm --dir apps/web test:e2e:production` e `pnpm --dir apps/web check:production-bundle`.
+Procedimento completo: [`specs/008-web-production-env/quickstart.md`](specs/008-web-production-env/quickstart.md).
 
 ## Desenvolvimento orientado a especificação
 

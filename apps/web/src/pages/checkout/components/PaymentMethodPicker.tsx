@@ -1,4 +1,4 @@
-import { useCoinsBalance } from '@/domains/coins'
+import { coinsEnabled, useCoinsBalance } from '@/domains/coins'
 import { RadioGroup, RadioGroupItem } from '@/shared/ui/radio-group'
 import { Skeleton } from '@/shared/ui/skeleton'
 
@@ -21,6 +21,10 @@ export function PaymentMethodPicker({
 }) {
   const coinsBalance = useCoinsBalance()
   const insufficientCoins = coinsBalance.data !== undefined && coinsBalance.data.balance < coinsRequired
+
+  // No coins backend in this build (production): the page keeps its default `wallet` method and shows
+  // no picker at all, since a single option would be a choice that is not one.
+  if (!coinsEnabled) return null
 
   return (
     <div className="flex flex-col gap-4">

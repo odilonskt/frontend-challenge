@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { toast } from 'sonner'
-import { useCoinsBalance, useTopUpCoins } from '@/domains/coins'
+import { coinsEnabled, useCoinsBalance, useTopUpCoins } from '@/domains/coins'
 import { isApiError } from '@/shared/api/http'
 import { Button } from '@/shared/ui/button'
 import { Input } from '@/shared/ui/input'
@@ -10,6 +10,9 @@ export function CoinsBalanceSection() {
   const balance = useCoinsBalance()
   const topUp = useTopUpCoins()
   const [amount, setAmount] = useState('')
+
+  // After the hooks (their order must not change): no coins backend in this build => no section.
+  if (!coinsEnabled) return null
 
   function onTopUp() {
     const parsed = Number(amount)

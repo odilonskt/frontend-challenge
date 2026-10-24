@@ -2,6 +2,9 @@
 
 interface ImportMetaEnv {
   readonly VITE_API_BASE_URL?: string
+  readonly VITE_BACKEND_BASE_URL?: string
+  readonly VITE_ENABLE_BACKEND_MOCKS?: string
+  readonly VITE_COINS_API_URL?: string
   readonly VITE_SOCKET_URL?: string
   readonly VITE_ENABLE_MOCKS?: string
   readonly VITE_REQUEST_TIMEOUT_MS?: string

@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import axios from 'axios'
 import { useSession } from '@/domains/auth'
 import { coinsHttp } from './client'
+import { coinsEnabled } from '../model/availability'
 import type { CoinBalance, CoinTransactionResult } from '../model/contracts'
 
 /** Thrown by `debitCoins` specifically for the insufficient-balance case (FR-007). */
@@ -23,7 +24,8 @@ export function useCoinsBalance() {
   return useQuery({
     queryKey: balanceKey(userId),
     queryFn: () => coinsHttp.get<CoinBalance>('/coins/balance', { headers: { 'X-User-Id': userId } }).then((r) => r.data),
-    enabled: userId !== undefined,
+    // Never queries a coins backend that is not configured (production builds; specs/008 FR-008).
+    enabled: coinsEnabled && userId !== undefined,
   })
 }
 

@@ -13,3 +13,14 @@ Por isso, este domínio usa sua própria instância Axios (`api/client.ts`, apon
 checkout).
 
 **Usado por**: `pages/wallets` (saldo + recarga) e `pages/checkout` (pagamento com coins).
+
+## Produção (specs/008-web-production-env)
+
+As moedas só existem em builds com `VITE_COINS_API_URL` definida (`coinsEnabled`, exportado por este
+domínio). Em desenvolvimento a variável tem o padrão `http://localhost:4000` (o `server/` local); em
+**produção não há padrão**: o `server/` usa SQLite em arquivo e não roda na Vercel, então o build
+publicado esconde a seção de saldo em `pages/wallets` e o seletor de forma de pagamento em
+`pages/checkout`, e `useCoinsBalance` não consulta nada. O pagamento com carteira/ETH não muda.
+
+Reativar as moedas em produção exige uma feature própria (outro armazenamento para o saldo), não só
+definir a variável.

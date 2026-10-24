@@ -4,6 +4,8 @@ const PORT = 4173
 
 export default defineConfig({
   testDir: './e2e',
+  // Production-build smoke tests have their own config (playwright.production.config.ts).
+  testIgnore: '**/production/**',
   fullyParallel: true,
   reporter: [['list'], ['html', { open: 'never' }]],
   expect: { toHaveScreenshot: { maxDiffPixelRatio: 0.02, animations: 'disabled' } },

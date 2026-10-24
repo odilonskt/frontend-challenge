@@ -1,3 +1,4 @@
+import '@/shared/config/zod' // must stay first: see the comment in that file
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { App } from '@/app/App'
