@@ -40,6 +40,22 @@ interface LedgerState {
 
 const emptyState = (): LedgerState => ({ balances: {}, history: {}, operations: {}, sequence: 0 })
 
+// Cursor codec (the mock runs in the browser: no `Buffer`). base64url of the UTF-8 owner id, like apps/api.
+function encodeCursor(value: string): string {
+  const binary = String.fromCharCode(...new TextEncoder().encode(value))
+  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
+}
+
+function decodeCursor(cursor: string): string {
+  try {
+    const base64 = cursor.replace(/-/g, '+').replace(/_/g, '/')
+    const binary = atob(base64.padEnd(base64.length + ((4 - (base64.length % 4)) % 4), '='))
+    return new TextDecoder().decode(Uint8Array.from(binary, (char) => char.charCodeAt(0)))
+  } catch {
+    return ''
+  }
+}
+
 /** Error carrying the API's `{ error: { code, message } }` contract. */
 export class LedgerMockError extends Error {
   readonly status: number
@@ -109,6 +125,30 @@ export class LedgerService {
 
   debit(ownerId: string, amount: unknown, idempotencyKey?: string | null) {
     return this.applyOnce(ownerId, 'debit', this.validAmount(amount), idempotencyKey)
+  }
+
+  /**
+   * Owners that have a balance, in ascending `ownerId` order, keyset-paginated like `apps/api`: `cursor` is the
+   * base64url of the last `ownerId` of the previous page, and is returned only when there are more owners.
+   */
+  listOwners(limit: number, cursor?: string): { owners: { ownerId: string; updatedAt: string }[]; cursor?: string } {
+    const after = cursor ? decodeCursor(cursor) : ''
+    const rows = this.store
+      .read((s) => Object.values(s.balances))
+      .filter((balance) => balance.ownerId > after)
+      .sort((a, b) => (a.ownerId < b.ownerId ? -1 : a.ownerId > b.ownerId ? 1 : 0))
+      .slice(0, limit + 1)
+    const page = rows.slice(0, limit)
+    const last = page.at(-1)
+    return {
+      owners: page.map((row) => ({ ownerId: row.ownerId, updatedAt: row.updatedAt })),
+      cursor: rows.length > limit && last ? encodeCursor(last.ownerId) : undefined,
+    }
+  }
+
+  /** What `GET /admin/owners/:ownerId` shows: the balance and the 50 most recent operations. */
+  ownerDetail(ownerId: string) {
+    return { balance: this.getBalance(ownerId), transactions: this.listTransactions(ownerId, 50) }
   }
 
   listTransactions(ownerId: string, limit: number) {

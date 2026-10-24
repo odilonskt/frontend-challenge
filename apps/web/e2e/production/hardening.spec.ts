@@ -66,3 +66,26 @@ test('coins are visible and only ever reach /backend, across a full journey', as
   )
   expect(violations).toEqual([])
 })
+
+// specs/012-coins-admin: the coins administrator's sign-in only ever reaches `/backend/admin/*` on the site's own
+// origin. Locally nothing listens behind the preview's `/backend` proxy, so the attempt must end in the
+// "unavailable" message; against a published deploy it only checks that the page loads (no real credentials here).
+test('the coins admin sign-in only reaches /backend/admin on the same origin', async ({ page }) => {
+  const requests: string[] = []
+  page.on('request', (request) => requests.push(request.url()))
+
+  await page.goto('/admin/coins/login')
+  await expect(page.getByRole('heading', { name: 'Administração das moedas' })).toBeVisible()
+  if (published) return
+
+  await page.getByLabel(/^E-mail/).fill('moedas@nft.dev')
+  await page.getByLabel(/^Senha/).fill('qualquer-senha-123')
+  await page.getByRole('button', { name: 'Entrar' }).click()
+  await expect(page.getByRole('alert')).toContainText('Serviço de moedas indisponível. Tente novamente.', { timeout: 15_000 })
+
+  const origin = new URL(page.url()).origin
+  const adminCalls = requests.filter((url) => new URL(url).pathname.startsWith('/backend/admin/'))
+  expect(adminCalls.length).toBeGreaterThan(0)
+  for (const url of adminCalls) expect(url.startsWith(`${origin}/backend/admin/`), url).toBe(true)
+  expect(requests.filter((url) => new URL(url).port === '4000')).toEqual([])
+})

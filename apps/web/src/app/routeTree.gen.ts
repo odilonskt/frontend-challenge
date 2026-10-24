@@ -26,6 +26,9 @@ import { Route as LearnIndexRouteImport } from './routes/learn.index'
 import { Route as LearnSlugRouteImport } from './routes/learn.$slug'
 import { Route as NftNftIdRouteImport } from './routes/nft.$nftId'
 import { Route as OrdersOrderIdRouteImport } from './routes/orders.$orderId'
+import { Route as AdminCoinsIndexRouteImport } from './routes/admin.coins.index'
+import { Route as AdminCoinsOwnerIdRouteImport } from './routes/admin.coins.$ownerId'
+import { Route as AdminCoinsLoginRouteImport } from './routes/admin.coins.login'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -112,6 +115,21 @@ const OrdersOrderIdRoute = OrdersOrderIdRouteImport.update({
   path: '/orders/$orderId',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminCoinsIndexRoute = AdminCoinsIndexRouteImport.update({
+  id: '/admin/coins/',
+  path: '/admin/coins/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminCoinsOwnerIdRoute = AdminCoinsOwnerIdRouteImport.update({
+  id: '/admin/coins/$ownerId',
+  path: '/admin/coins/$ownerId',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminCoinsLoginRoute = AdminCoinsLoginRouteImport.update({
+  id: '/admin/coins/login',
+  path: '/admin/coins/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -131,6 +149,9 @@ export interface FileRoutesByFullPath {
   '/orders/$orderId': typeof OrdersOrderIdRoute
   '/creators/': typeof CreatorsIndexRoute
   '/learn/': typeof LearnIndexRoute
+  '/admin/coins/$ownerId': typeof AdminCoinsOwnerIdRoute
+  '/admin/coins/login': typeof AdminCoinsLoginRoute
+  '/admin/coins/': typeof AdminCoinsIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -150,6 +171,9 @@ export interface FileRoutesByTo {
   '/orders/$orderId': typeof OrdersOrderIdRoute
   '/creators': typeof CreatorsIndexRoute
   '/learn': typeof LearnIndexRoute
+  '/admin/coins/$ownerId': typeof AdminCoinsOwnerIdRoute
+  '/admin/coins/login': typeof AdminCoinsLoginRoute
+  '/admin/coins': typeof AdminCoinsIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -170,6 +194,9 @@ export interface FileRoutesById {
   '/orders/$orderId': typeof OrdersOrderIdRoute
   '/creators/': typeof CreatorsIndexRoute
   '/learn/': typeof LearnIndexRoute
+  '/admin/coins/$ownerId': typeof AdminCoinsOwnerIdRoute
+  '/admin/coins/login': typeof AdminCoinsLoginRoute
+  '/admin/coins/': typeof AdminCoinsIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -191,6 +218,9 @@ export interface FileRouteTypes {
     | '/orders/$orderId'
     | '/creators/'
     | '/learn/'
+    | '/admin/coins/$ownerId'
+    | '/admin/coins/login'
+    | '/admin/coins/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -210,6 +240,9 @@ export interface FileRouteTypes {
     | '/orders/$orderId'
     | '/creators'
     | '/learn'
+    | '/admin/coins/$ownerId'
+    | '/admin/coins/login'
+    | '/admin/coins'
   id:
     | '__root__'
     | '/'
@@ -229,6 +262,9 @@ export interface FileRouteTypes {
     | '/orders/$orderId'
     | '/creators/'
     | '/learn/'
+    | '/admin/coins/$ownerId'
+    | '/admin/coins/login'
+    | '/admin/coins/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -249,6 +285,9 @@ export interface RootRouteChildren {
   OrdersOrderIdRoute: typeof OrdersOrderIdRoute
   CreatorsIndexRoute: typeof CreatorsIndexRoute
   LearnIndexRoute: typeof LearnIndexRoute
+  AdminCoinsOwnerIdRoute: typeof AdminCoinsOwnerIdRoute
+  AdminCoinsLoginRoute: typeof AdminCoinsLoginRoute
+  AdminCoinsIndexRoute: typeof AdminCoinsIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -372,6 +411,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof OrdersOrderIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/coins/': {
+      id: '/admin/coins/'
+      path: '/admin/coins'
+      fullPath: '/admin/coins/'
+      preLoaderRoute: typeof AdminCoinsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/coins/$ownerId': {
+      id: '/admin/coins/$ownerId'
+      path: '/admin/coins/$ownerId'
+      fullPath: '/admin/coins/$ownerId'
+      preLoaderRoute: typeof AdminCoinsOwnerIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/coins/login': {
+      id: '/admin/coins/login'
+      path: '/admin/coins/login'
+      fullPath: '/admin/coins/login'
+      preLoaderRoute: typeof AdminCoinsLoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -393,6 +453,9 @@ const rootRouteChildren: RootRouteChildren = {
   OrdersOrderIdRoute: OrdersOrderIdRoute,
   CreatorsIndexRoute: CreatorsIndexRoute,
   LearnIndexRoute: LearnIndexRoute,
+  AdminCoinsOwnerIdRoute: AdminCoinsOwnerIdRoute,
+  AdminCoinsLoginRoute: AdminCoinsLoginRoute,
+  AdminCoinsIndexRoute: AdminCoinsIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
