@@ -1,6 +1,6 @@
 <!--
 Sync Impact Report
-- Version change: 1.1.0 → 1.2.0 → 1.2.1 → 1.3.0 → 1.4.0 → 1.5.0 → 1.6.0
+- Version change: 1.1.0 → 1.2.0 → 1.2.1 → 1.3.0 → 1.4.0 → 1.5.0 → 1.6.0 → 1.7.0
 - Modified principles: nenhum (nenhum princípio existente foi removido ou redefinido de forma
   incompatível; a mudança abaixo é uma segunda exceção aditiva, escopada a um workspace novo
   `apps/api` + `apps/web`, sem alterar `server/`, a exceção de 1.1.0, nem o restante de `src/`)
@@ -25,11 +25,19 @@ Sync Impact Report
   `$queryRaw` parametrizado (as variantes `Unsafe` são proibidas) e `DATABASE_URL_UNPOOLED` (usada só
   pelo Migrate) entra na regra de "só em variável de ambiente". MINOR: expansão material da stack
   permitida, sem remover nem redefinir princípio; o restante da exceção fica literalmente igual
-- Modified sections: "Exceção Pontual: Monorepo na Vercel com Vercel Blob" — só a frase de persistência
-  do item "Stack permitida dentro de `apps/api`"
+- 1.7.0: Atividade, Ofertas e Arquivos baixados saem de "Fora de escopo" e entram como escopo simulado
+  (MSW), com regras mínimas de cada um; entram também os pedidos no admin do marketplace (somente
+  leitura) e a tela do admin real das moedas (somente leitura, `/backend/admin/*`, token separado da
+  sessão do site e nunca em `localStorage`). Suporte e páginas editoriais continuam fora. Pedido
+  explícito do usuário (plano de 2026-10-24: features 012–016). MINOR: expansão material de escopo, sem
+  remover nem redefinir princípio
+- Modified sections: "Restrições Técnicas e de Escopo" (itens "Fora de escopo" e "Segurança"; novo item
+  "Escopo ampliado (1.7.0)")
 - Templates/commands: nenhum alterado (leem a constituição em tempo de execução)
 - Removed sections: nenhum
-- Follow-up TODOs: nenhum
+- Follow-up TODOs: atualizar `docs/CHALLENGE.md` (linha 48 ainda lista atividade, ofertas e downloads
+  como fora da entrega); feito na primeira feature desta leva (012), pois este comando só altera a
+  constituição
 -->
 # NFT Marketplace Constitution
 
@@ -100,10 +108,22 @@ auditado com Lighthouse (`pnpm lighthouse`).
   efetivamente da solução.
 - Gerenciador de pacotes: pnpm. Linter: oxlint (`.oxlintrc.json` codifica as regras de fronteira).
 - Fora de escopo: integrações reais de blockchain, extensões de carteira e gateways de pagamento;
-  páginas editoriais, suporte, atividade, ofertas e downloads. Ações fora do escopo MUST NOT
-  aparentar sucesso funcional.
-- Segurança: credenciais fictícias apenas; senhas MUST NOT ser armazenadas em claro; checkout,
-  perfil, carteiras, favoritos e pedidos exigem autenticação.
+  páginas editoriais e suporte. Ações fora do escopo MUST NOT aparentar sucesso funcional.
+- Escopo ampliado (1.7.0), sempre simulado no MSW (Princípio V), sem integração real nova:
+  - **Atividade**: feed somente leitura do próprio usuário, derivado de dados que já existem (pedidos,
+    ofertas, favoritos, moedas); MUST NOT inventar eventos que não aconteceram no cenário simulado.
+  - **Ofertas**: o colecionador faz uma oferta de preço num NFT; o vendedor aceita ou recusa; cada oferta
+    tem status explícito. Aceitar uma oferta MUST NOT aparentar liquidação real (é a simulação de pedido
+    já existente, com chave de idempotência, Princípio III).
+  - **Arquivos baixados**: só dos NFTs com pedido confirmado do próprio usuário.
+  - **Pedidos no admin do marketplace**: listar os pedidos de todos os usuários e ver o detalhe, somente
+    leitura, exigindo `role: "admin"` da sessão do site.
+  - **Tela do admin real das moedas** (`apps/api`, exceção 1.4.0): somente leitura, pelo caminho
+    `/backend/admin/*`. O token de admin da API MUST NOT ser confundido com a sessão do site (papéis e
+    sessões separados) e MUST NOT ser persistido em `localStorage`.
+- Segurança: credenciais fictícias apenas (exceto o admin real de `apps/api`, regido pela exceção
+  1.4.0); senhas MUST NOT ser armazenadas em claro; checkout, perfil, carteiras, favoritos, pedidos,
+  atividade, ofertas e arquivos baixados exigem autenticação.
 - Recibos MUST reproduzir o snapshot do pedido, imutável a mudanças posteriores no catálogo.
 
 ## Exceção Pontual: Backend Real de Moedas da Plataforma (`server/`)
@@ -221,4 +241,4 @@ expansão material; PATCH para esclarecimentos e correções de redação. Revis
 `/speckit-analyze` MUST verificar conformidade; regras de fronteira (Princípio I) são impostas
 automaticamente por `pnpm lint`. Orientação de uso diário: `docs/TEAMS.md` e `docs/CHALLENGE.md`.
 
-**Version**: 1.6.0 | **Ratified**: 2026-10-14 | **Last Amended**: 2026-10-24
+**Version**: 1.7.0 | **Ratified**: 2026-10-14 | **Last Amended**: 2026-10-24
