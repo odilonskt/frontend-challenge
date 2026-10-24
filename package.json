@@ -19,6 +19,6 @@
     "vercel": "^48.5.2"
   },
   "pnpm": {
-    "onlyBuiltDependencies": ["nx", "esbuild"]
+    "onlyBuiltDependencies": ["nx", "esbuild", "prisma", "@prisma/engines"]
   }
 }

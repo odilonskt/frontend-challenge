@@ -1,19 +1,18 @@
 import { Router } from "express"
-import { internal } from "../lib/errors.js"
+import { prisma } from "../lib/db.js"
+import { ApiError, internal } from "../lib/errors.js"
 
 const router = Router()
 
-router.get("/", (_req, res, next) => {
-  if (!process.env.BLOB_READ_WRITE_TOKEN) {
-    next(
-      internal(
-        "missing_blob_token",
-        "BLOB_READ_WRITE_TOKEN is not configured. Set it in apps/api/.env.local (see .env.example).",
-      ),
-    )
-    return
+// 200 only when the database answers. Missing DATABASE_URL -> 500 `missing_database_url` (lib/db.ts);
+// an unreachable database -> 500 `database_unavailable` (the driver's message may carry host details: not echoed).
+router.get("/", async (_req, res) => {
+  try {
+    await prisma().$queryRaw`SELECT 1`
+  } catch (err) {
+    if (err instanceof ApiError) throw err
+    throw internal("database_unavailable", "The database did not answer the health query.")
   }
-
   res.status(200).json({ status: "ok" })
 })
 

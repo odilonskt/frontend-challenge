@@ -5,13 +5,13 @@
 // that (research.md D8).
 import app from "./app.js"
 
-const REQUIRED_ENV_VARS = ["BLOB_READ_WRITE_TOKEN", "AUTH_JWT_SECRET"] as const
+const REQUIRED_ENV_VARS = ["DATABASE_URL", "AUTH_JWT_SECRET"] as const
 
 const missing = REQUIRED_ENV_VARS.filter((name) => !process.env[name])
 if (missing.length > 0) {
   console.error(
     `[apps/api] Missing required environment variable(s): ${missing.join(", ")}. ` +
-      "Copy apps/api/.env.example to apps/api/.env.local and fill them in.",
+      "Run `vercel env pull .env.local` in apps/api (DATABASE_URL) and set AUTH_JWT_SECRET (see .env.example).",
   )
   process.exit(1)
 }

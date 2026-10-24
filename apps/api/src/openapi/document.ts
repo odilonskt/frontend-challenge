@@ -1,5 +1,11 @@
 import pkg from "../../package.json" with { type: "json" }
-import { componentSchemas, limitParameterSchema, schemaRef, type JsonSchema } from "./components.js"
+import {
+  componentSchemas,
+  idempotencyKeyHeaderSchema,
+  limitParameterSchema,
+  schemaRef,
+  type JsonSchema,
+} from "./components.js"
 
 /** Minimal OpenAPI 3.1 document shape (only what we emit). */
 export interface OpenApiDocument {
@@ -33,6 +39,15 @@ const jsonBody = (schemaName: string): JsonSchema => ({
   ...jsonContent(schemaName),
 })
 
+const idempotencyKeyParameter: JsonSchema = {
+  name: "Idempotency-Key",
+  in: "header",
+  required: false,
+  description:
+    "Opcional. A mesma chave repetida com a mesma operação e o mesmo `amount` devolve o resultado original sem novo efeito; com outra operação ou outro `amount` retorna `409`.",
+  schema: idempotencyKeyHeaderSchema,
+}
+
 // Applied only to /coins/* operations (research.md D7).
 const secured: JsonSchema[] = [{ bearerAuth: [] }]
 
@@ -47,7 +62,7 @@ const INFO_DESCRIPTION = [
   "**Limitações conhecidas (não escondidas):**",
   "",
   "1. **Emissão de token confia no `ownerId` pedido.** `POST /auth/token` emite um JWT para qualquer `ownerId` informado — não há login/senha real. É uma simplificação assumida do desafio, aceitável por não envolver dinheiro nem dados sensíveis reais. O *uso* subsequente é verificado (o `ownerId` vem só da claim do token), mas a *emissão* não autentica ninguém.",
-  "2. **Vercel Blob não é transacional.** O saldo usa concorrência otimista (ler versão, escrever, rejeitar com `409` em conflito). Como as leituras do Blob são eventualmente consistentes e não há compare-and-swap, escritas concorrentes **podem perder atualizações** — isto NÃO é consistência transacional real. Em conflito, o cliente deve reler o saldo e repetir a requisição.",
+  "2. **Persistência em Postgres (Neon).** Crédito e débito são uma única instrução SQL atômica (saldo + histórico juntos); débito sem saldo suficiente retorna `402` sem gravar nada. Não há `409` de concorrência.",
   "",
   "Exemplos de token são fictícios; nenhum segredo é exposto por esta API.",
 ].join("\n")
@@ -66,7 +81,7 @@ function assemble(): OpenApiDocument {
       { url: "https://<deployment>.vercel.app/api", description: "produção (substitua <deployment>)" },
     ],
     tags: [
-      { name: "health", description: "Verificação de saúde da função e do Blob." },
+      { name: "health", description: "Verificação de saúde da função e do banco." },
       { name: "auth", description: "Emissão de token (confia no ownerId — ver descrição da API)." },
       { name: "coins", description: "Saldo e histórico de moedas — exige Bearer token." },
     ],
@@ -74,11 +89,11 @@ function assemble(): OpenApiDocument {
       "/health": {
         get: {
           tags: ["health"],
-          summary: "Verifica a função e a configuração do Blob.",
+          summary: "Verifica a função e a conexão com o banco.",
           operationId: "getHealth",
           responses: {
             "200": okResponse("Serviço saudável.", "HealthResponse"),
-            "500": errorResponse("`BLOB_READ_WRITE_TOKEN` ausente (`missing_blob_token`)."),
+            "500": errorResponse("`DATABASE_URL` ausente (`missing_database_url`) ou banco inacessível (`database_unavailable`)."),
             default: defaultError,
           },
         },
@@ -116,13 +131,14 @@ function assemble(): OpenApiDocument {
           summary: "Credita o saldo do owner do token.",
           operationId: "topUp",
           security: secured,
+          parameters: [idempotencyKeyParameter],
           requestBody: jsonBody("AmountRequest"),
           responses: {
             "200": okResponse("Saldo atualizado após o crédito.", "CoinBalanceRecord"),
-            "400": errorResponse("Body inválido (`invalid_amount`)."),
+            "400": errorResponse("Body inválido (`invalid_amount`) ou `Idempotency-Key` inválida (`invalid_idempotency_key`)."),
             "401": errorResponse("Token ausente, expirado ou inválido."),
-            "409": errorResponse("Conflito de concorrência (`concurrency_conflict`) — reler e repetir."),
-            "500": errorResponse("Falha ao ler/escrever no Blob; nada foi aplicado."),
+            "409": errorResponse("`Idempotency-Key` já usada com outra operação ou outro valor (`idempotency_key_conflict`)."),
+            "500": errorResponse("Falha no banco; nada foi aplicado (a instrução é atômica)."),
             default: defaultError,
           },
         },
@@ -133,14 +149,15 @@ function assemble(): OpenApiDocument {
           summary: "Debita o saldo do owner do token.",
           operationId: "debit",
           security: secured,
+          parameters: [idempotencyKeyParameter],
           requestBody: jsonBody("AmountRequest"),
           responses: {
             "200": okResponse("Saldo atualizado após o débito.", "CoinBalanceRecord"),
-            "400": errorResponse("Body inválido (`invalid_amount`)."),
+            "400": errorResponse("Body inválido (`invalid_amount`) ou `Idempotency-Key` inválida (`invalid_idempotency_key`)."),
             "401": errorResponse("Token ausente, expirado ou inválido."),
             "402": errorResponse("Saldo insuficiente (`insufficient_balance`) — nada é escrito."),
-            "409": errorResponse("Conflito de concorrência (`concurrency_conflict`) — reler e repetir."),
-            "500": errorResponse("Falha ao ler/escrever no Blob; nada foi aplicado."),
+            "409": errorResponse("`Idempotency-Key` já usada com outra operação ou outro valor (`idempotency_key_conflict`)."),
+            "500": errorResponse("Falha no banco; nada foi aplicado (a instrução é atômica)."),
             default: defaultError,
           },
         },

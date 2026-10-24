@@ -1,17 +1,19 @@
 ---
 
-description: "Task list for 010-api-production-backend"
+description: "Task list for 010-api-production-backend (revision 3: Prisma ORM)"
 ---
 
 # Tasks: Back-end de produção (`apps/api`) funcionando de verdade
 
 **Input**: Design documents from `/specs/010-api-production-backend/`
 
-**Prerequisites**: plan.md, spec.md, research.md, data-model.md, contracts/api-delta.md, contracts/verification-suite.md, quickstart.md (all present)
+**Prerequisites**: plan.md (revision 3, Prisma), spec.md, research.md (D1–D15), data-model.md, contracts/api-delta.md, contracts/verification-suite.md, quickstart.md
 
-**Tests**: The spec requires an executable verification (FR-012), so the test artifact is `apps/api/scripts/verify-deploy.mjs` (contract: `contracts/verification-suite.md`), built incrementally with the stories it proves. No separate unit-test framework is introduced.
+**Tests**: The spec requires an executable verification (FR-012), so the test artifact is `apps/api/scripts/verify-deploy.mjs` (contract: `contracts/verification-suite.md`). No unit-test framework is introduced. The Prisma swap adds one gate: the 20-request same-key race (research D14).
 
 **Organization**: Tasks are grouped by user story (spec.md US1–US4).
+
+**Progress carried over**: this file was regenerated on 2026-10-24 for the Prisma plan **without losing progress**. Work already done in revision 2 (Neon driver direct) stays `[X]` and is described as it was actually built; the Prisma tasks that replace parts of it are new and unchecked. IDs were renumbered in execution order (old → new: T008–T011 → T012–T015, T019 → T022, T026 → T033, T030–T036 → T039–T045). The previous file is saved at `C:\Users\User\AppData\Local\Temp\claude\C--Users-User-Desktop-xD\5e93462a-b1f8-47bf-8918-5151849f7ba7\scratchpad\tasks.before-prisma.md`.
 
 ## Format: `[ID] [P?] [Story] Description`
 
@@ -21,47 +23,49 @@ description: "Task list for 010-api-production-backend"
 
 ## Path Conventions
 
-`apps/api/` plus `.specify/memory/constitution.md` and, for status updates only, `specs/008-web-production-env/`. `server/`, `apps/web/` and `specs/006`/`007` are **not** modified (FR-015).
+`apps/api/`, the root `package.json` (pnpm settings only), `.specify/memory/constitution.md` and, for status/docs only, `specs/008-web-production-env/`. `server/`, `apps/web/` and `specs/006`/`007` are **not** modified (FR-015).
 
 ## Ordering note
 
-**US1 (deploy fix) does not depend on the database or on the constitutional amendment**: it deploys the code that already exists. It may start right after Phase 1 and ship alone as the MVP. Phase 2 (database layer) blocks **US2, US3 and US4's database steps** only.
+US1 is already delivered (on the old Blob code). **No Prisma code starts before T002 (amendment 1.6.0) is approved.** If the user declines the amendment, skip every Prisma task (T003, T004, T007–T011, T023–T026, T031, T032, T036, T037) and continue from T033 with the revision-2 code, which already satisfies the spec.
 
 ---
 
 ## Phase 1: Setup
 
-- [ ] T001 **Gate — needs the user's approval.** Amend `.specify/memory/constitution.md` to v1.5.0 (MINOR): in the "Monorepo na Vercel com Vercel Blob" exception, replace "Nenhum driver de banco relacional é introduzido" and "persiste dados via Vercel Blob" with: `apps/api` persists in managed PostgreSQL (Neon via Vercel Marketplace) using the `pg` driver, with SQL migrations versioned in `apps/api/db/migrations`; remove the "limitação assumida" that the admin hash lives in non-private storage; keep every other bullet (admin hash/login/role rules, token identity model, `server/` untouched, e2e against mocks) verbatim. Add the Sync Impact Report entry (1.4.0 → 1.5.0) and bump `Last Amended`. No storage code (Phase 2 onward) starts before this is approved
-- [ ] T002 [P] Add `pg` and `@types/pg` to `apps/api/package.json` and the scripts `"db:migrate": "tsx scripts/migrate.ts"` and `"verify:deploy": "node scripts/verify-deploy.mjs"`. **Keep `@vercel/blob`** for now (US1 deploys the current code; it is removed in T029). Run `pnpm install` from the repo root
-- [ ] T003 [P] Edit `apps/api/.env.example`: add `DATABASE_URL=` with a comment (local: `postgres://postgres:dev@localhost:5432/postgres`; Vercel: the Neon *pooler* URL), keep `AUTH_JWT_SECRET` and `PORT=4001`; leave `BLOB_READ_WRITE_TOKEN` documented as "removed after T029"
+- [X] T001 Constitution v1.5.0 in `.specify/memory/constitution.md` (2026-10-24): `apps/api` may use Postgres on Neon via `@neondatabase/serverless`; Blob → Postgres migration rules. Already in the working tree
+- [X] T002 (2026-10-24: v1.6.0 applied via /speckit-constitution) **Gate — needs the user's approval.** Amend `.specify/memory/constitution.md` to **v1.6.0** (MINOR) through `/speckit-constitution`, using the text in `specs/010-api-production-backend/plan.md` → Complexity Tracking → "Texto proposto para a emenda 1.6.0": replace "acessado só por `@neondatabase/serverless`; nenhum ORM e nenhum outro banco" with "acessado pelo **Prisma ORM** (`@prisma/client`, `prisma`) com o adaptador `@prisma/adapter-neon` sobre `@neondatabase/serverless`; nenhum outro ORM, driver ou banco. Esquema e migrações MUST viver em `apps/api/prisma/` (Prisma Migrate). SQL cru só por *tagged template* parametrizado (`$queryRaw`), nunca pelas variantes `Unsafe`. `DATABASE_URL` e `DATABASE_URL_UNPOOLED` só em variável de ambiente." Keep every other bullet of the exception verbatim; add the Sync Impact Report entry (1.5.0 → 1.6.0) and bump `Last Amended`
+- [X] T003 (2026-10-24: Prisma 7.10.1 exact; `postinstall` verified from a clean `src/generated`; pnpm ran the `prisma`/`@prisma/engines` scripts, no "Ignored build scripts") Add Prisma to `apps/api/package.json` with **exact** versions (research D13; the `prisma` `latest` dist-tag is an 8.0 RC, do not use it): dependencies `"@prisma/client": "7.10.1"`, `"@prisma/adapter-neon": "7.10.1"`; devDependency `"prisma": "7.10.1"`; keep `@neondatabase/serverless`. Scripts: add `"postinstall": "prisma generate"`, change `"db:migrate"` to `"prisma migrate deploy"`, add `"db:status": "prisma migrate status"`. In the **root** `package.json` add `"prisma"` and `"@prisma/engines"` to `pnpm.onlyBuiltDependencies` (keep `"nx"`, `"esbuild"`). Run `pnpm install` from the repo root; the output MUST NOT contain "Ignored build scripts" for those packages. Depends on T002
+- [X] T004 (2026-10-24: env example, gitignore, oxlint ignore) [P] Edit `apps/api/.env.example`: add `DATABASE_URL_UNPOOLED=` with a comment ("direct, non-pooled connection of the same Neon branch; used only by Prisma Migrate; set by the Neon integration") under `DATABASE_URL`. Add `src/generated/` to `apps/api/.gitignore`. Add `"ignorePatterns": ["src/generated/**"]` to `apps/api/.oxlintrc.json`. Depends on T002
 
 ---
 
-## Phase 2: Foundational (database layer — blocks US2, US3, US4 DB steps; NOT US1)
+## Phase 2: Foundational (database layer — blocks US2, US3 and US4's database steps)
 
-**⚠️ Requires T001 approved.**
+- [X] T005 (revision 2) `apps/api/src/lib/db.ts`: lazily created Neon HTTP client, `500 missing_database_url` when `DATABASE_URL` is unset; `apps/api/src/server.ts` `REQUIRED_ENV_VARS` = `["DATABASE_URL", "AUTH_JWT_SECRET"]`
+- [X] T006 (revision 2) Idempotent DDL in `apps/api/src/db/schema.ts` (tables `balances`, `transactions`, `admins`) applied by `apps/api/scripts/migrate.ts`; ran twice against the dev Neon branch from `.env.local` without error
+- [X] T007 (2026-10-24: `schema.prisma` (generator `prisma-client`, esm, `.js` extensions)) Create `apps/api/prisma/schema.prisma` per `data-model.md` → "Modelos Prisma ↔ tabelas" (research D7, D15). `generator client { provider = "prisma-client", output = "../src/generated/prisma", moduleFormat = "esm", importFileExtension = "js" }`; `datasource db { provider = "postgresql" }` (no `url` in Prisma 7). Models, camelCase fields with `@map` to the existing snake_case columns: **`Balance`** `@@map("balances")`: `ownerId String @id @map("owner_id")`, `amount BigInt`, `version BigInt @default(0)`, `updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz`, relation `transactions CoinTransaction[]`. **`CoinTransaction`** `@@map("transactions")`: `txId String @id @map("tx_id") @db.Uuid`, `ownerId` (relation to `Balance.ownerId`), `direction String`, `amount BigInt`, `resultingBalance BigInt @map("resulting_balance")`, `resultingVersion BigInt @default(0) @map("resulting_version")`, `idempotencyKey String? @map("idempotency_key")`, `createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz`; `@@unique([ownerId, idempotencyKey], map: "transactions_owner_idempotency_key")`; `@@index([ownerId, createdAt(sort: Desc), txId(sort: Desc)], map: "transactions_owner_created_idx")`. **`Admin`** `@@map("admins")`: `id String @id`, `email String @unique`, `role String @default("admin")`, `passwordHash String @map("password_hash")`, `createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz`. Depends on T003
+- [X] T008 (2026-10-24: `prisma.config.ts`; `prisma generate` verified with no database variables set) [P] Create `apps/api/prisma.config.ts` with `defineConfig` from `prisma/config`: `schema: "prisma/schema.prisma"`, `migrations: { path: "prisma/migrations" }`, `datasource: { url: process.env.DATABASE_URL_UNPOOLED ?? "" }`. Read `process.env` directly, **not** the `env()` helper, so `prisma generate` works with no variables (Vercel install, research D15). Before reading, load `.env.local` when it exists (`try { process.loadEnvFile(".env.local") } catch {}`); never log a URL. Depends on T003
+- [X] T009 (2026-10-24: `0_init` generated + 9 named CHECKs by hand; `migration_lock.toml`) Create the initial migration: `pnpm --dir apps/api exec prisma migrate diff --from-empty --to-schema prisma/schema.prisma --script` → `apps/api/prisma/migrations/0_init/migration.sql`, plus `apps/api/prisma/migrations/migration_lock.toml` with `provider = "postgresql"`. Then add the CHECK constraints by hand, **verbatim** from `apps/api/src/db/schema.ts`: `balances`: `CHECK (owner_id <> '')`, `CHECK (amount >= 0)`, `CHECK (version >= 0)`; `transactions`: `CHECK (direction IN ('credit', 'debit'))`, `CHECK (amount > 0)`, `CHECK (resulting_balance >= 0)`, `CHECK (resulting_version >= 0)`, `CHECK (idempotency_key IS NULL OR length(idempotency_key) BETWEEN 1 AND 128)`; `admins`: `CHECK (role = 'admin')`. Compare the result with `schema.ts` table by table: same columns, types, defaults, FK `transactions.owner_id → balances.owner_id`, and index names. Depends on T007
+- [X] T010 (2026-10-24: `lib/db.ts` is `prisma()` over `PrismaNeonHttp`) Rewrite `apps/api/src/lib/db.ts` (research D2): export `prisma()` returning a lazily created `PrismaClient` (imported from `../generated/prisma/client.js`) built with `new PrismaNeonHttp(DATABASE_URL, {})` from `@prisma/adapter-neon`, one per function instance; keep throwing `internal("missing_database_url", …)` when `DATABASE_URL` is unset, with the same message; never log the URL. Remove the direct `neon()` client. Depends on T007
+- [X] T011 (2026-10-24: diff vs schema: no difference; the dev branch had only 7 of 9 CHECKs (the old `ADD COLUMN IF NOT EXISTS` skipped two), so `transactions_resulting_version_check` and `transactions_idempotency_key_check` were added (0 violating rows) before `migrate resolve --applied 0_init`; `db:status` up to date; `schema.ts`/`migrate.ts` deleted) Baseline the dev Neon branch (quickstart step 1; research D7): `pnpm --dir apps/api exec prisma migrate diff --from-config-datasource --to-schema prisma/schema.prisma --exit-code` MUST exit `0`; run the `pg_constraint` query from quickstart step 1 and confirm all 9 CHECKs of T009 exist; then `pnpm --dir apps/api exec prisma migrate resolve --applied 0_init` and `pnpm --dir apps/api db:status` = "Database schema is up to date!". Only then delete `apps/api/src/db/schema.ts` and `apps/api/scripts/migrate.ts`. Depends on T008, T009, T010
 
-- [ ] T004 Create `apps/api/db/migrations/001_init.sql` exactly per `data-model.md`: `coin_balances(owner_id text PRIMARY KEY, amount bigint NOT NULL CHECK (amount >= 0), version bigint NOT NULL, updated_at timestamptz NOT NULL)`; `coin_transactions(tx_id uuid PRIMARY KEY, owner_id text NOT NULL, direction text NOT NULL CHECK (direction IN ('credit','debit')), amount bigint NOT NULL CHECK (amount > 0), resulting_balance bigint NOT NULL CHECK (resulting_balance >= 0), idempotency_key text NULL, created_at timestamptz NOT NULL, UNIQUE (owner_id, idempotency_key))` plus index `(owner_id, created_at DESC)`; `admins(id text PRIMARY KEY, email text NOT NULL UNIQUE, password_hash text NOT NULL, role text NOT NULL CHECK (role = 'admin'), created_at timestamptz NOT NULL)`
-- [ ] T005 [P] Create `apps/api/src/lib/db.ts`: a lazily created `pg` `Pool` with `max: 1`, no named prepared statements, exporting a typed `query<T>(text, params)` helper; if `DATABASE_URL` is unset throw the specific `ApiError` `missing_database_url` (via `internal(...)` from `lib/errors.ts`) at first use and from `src/server.ts` at startup (FR-011); never log the URL
-- [ ] T006 Create `apps/api/scripts/migrate.ts`: creates `schema_migrations(name text PRIMARY KEY, applied_at timestamptz NOT NULL DEFAULT now())`, applies each `db/migrations/*.sql` in filename order inside a transaction once, skips already applied ones (idempotent), prints what ran. Depends on T004, T005
-- [ ] T007 Start local Postgres (`docker run --name nft-pg -e POSTGRES_PASSWORD=dev -p 5432:5432 -d postgres:16`), copy `.env.example` to `apps/api/.env.local`, run `pnpm --dir apps/api db:migrate` twice; the second run MUST apply nothing. Confirm the three tables and constraints exist with `docker exec nft-pg psql -U postgres -c "\d coin_transactions"`. Depends on T006
-
-**Checkpoint**: A migrated local database exists and the API can reach it.
+**Checkpoint**: Prisma Client is generated, the dev branch is under Prisma Migrate, and `lib/db.ts` serves a Prisma client.
 
 ---
 
-## Phase 3: User Story 1 — A API publicada responde em produção (Priority: P1) 🎯 MVP
+## Phase 3: User Story 1 — A API publicada responde em produção (Priority: P1) 🎯 MVP — DELIVERED
 
 **Goal**: `/api/*` answers in production, directly and through the site's `/backend/*`.
 
 **Independent Test**: `GET https://nft-marketplace-api-ochre.vercel.app/api/health` and `GET https://nft-marketplace-web-wheat.vercel.app/backend/health` both return `200` from the real API.
 
-- [X] T008 [US1] Verify `apps/api/vercel.json` contains `"framework": null`, `"buildCommand": ""` and the rewrite `/api/(.*)` → `/api/index` (it does on 2026-10-24; do not change it), and make sure `apps/api/README.md` "Deploying" states why (the `express` preset creates a catch-all function that collides with `api/index.ts`). Edit the README only if that explanation is missing
-- [X] T009 (2026-10-24: new project `nft-marketplace-api`; AUTH_JWT_SECRET + Blob store connected; deployed straight to production, no separate preview) [US1] **Needs the user's confirmation — deploys.** Check `vercel env ls` in `apps/api` that `BLOB_READ_WRITE_TOKEN` and `AUTH_JWT_SECRET` exist for **Production** (the current code still needs both); add what is missing without printing values. Then `vercel deploy` from `apps/api` and verify the preview with the existing `scripts/smoke-test.mjs` (`BASE_URL=https://<preview>/api`, bypass header for the protected preview): `/api/health` = `200`, unknown route = the API's own `404` JSON
-- [X] T010 [US1] **Needs the user's confirmation — publishes to production.** `vercel deploy --prod` from `apps/api`; verify `GET https://nft-marketplace-api-ochre.vercel.app/api/health` = `200 {"status":"ok"}` and `GET .../api/nao-existe` returns the API's structured `404` (US1 scenarios 1 and 3). If it still returns the platform `NOT_FOUND`, the project-level framework preset overrides `vercel.json`: set the project's Framework Preset to "Other" in the dashboard (CLI 48 has no `vercel api`) and redeploy
-- [X] T011 (2026-10-24: production API https://nft-marketplace-api-ochre.vercel.app and site /backend/health both 200; token → topup → balance verified through the site; no-token ⇒ 401; 008 T014 marked done) [US1] Verify the chain through the site: `GET https://nft-marketplace-web-wheat.vercel.app/backend/health` = `200` from the API (FR-003). Then update `specs/008-web-production-env/tasks.md`: mark T014 `[X]` with the date and result, and note in its US2 that FR-013 is satisfied. Do not edit anything else of the 008
+- [X] T012 [US1] `apps/api/vercel.json` has `"framework": null`, `"buildCommand": ""` and the rewrite `/api/(.*)` → `/api/index`; `apps/api/README.md` "Deploying" explains why. **Do not change `vercel.json` for Prisma** (research D15)
+- [X] T013 [US1] (2026-10-24) Vercel project `nft-marketplace-api` created with `AUTH_JWT_SECRET` and the Blob store; deployed straight to production (no separate preview)
+- [X] T014 [US1] (2026-10-24) `GET https://nft-marketplace-api-ochre.vercel.app/api/health` = `200`, unknown route = the API's structured `404`
+- [X] T015 [US1] (2026-10-24) `GET https://nft-marketplace-web-wheat.vercel.app/backend/health` = `200`; token → topup → balance verified through the site; no token ⇒ `401`; `specs/008-web-production-env/tasks.md` T014 marked done
 
-**Checkpoint**: US1 delivered on the current storage; the site's real back-end link works. Remaining stories fix the data layer.
+**Checkpoint**: US1 delivered on the old storage. The next promotion (T042) carries the database + Prisma code.
 
 ---
 
@@ -69,18 +73,21 @@ description: "Task list for 010-api-production-backend"
 
 **Goal**: Atomic, idempotent balance operations; saldo = soma do histórico.
 
-**Independent Test**: 50 concurrent operations on one balance end with exactly `inicial + soma das aceitas`, 10 runs out of 10, locally and in production.
+**Independent Test**: 50 concurrent operations on one balance end with exactly `inicial + soma das aceitas`, 10 runs out of 10; 20 concurrent requests with the same `Idempotency-Key` produce one effect and 20 identical `200` responses.
 
-- [ ] T012 [P] [US2] Create `apps/api/src/domains/coins/repository.ts` with the **port** `CoinsRepository` (`getBalance(ownerId)`, `applyOperation({ownerId, direction, amount, idempotencyKey?})` returning `{ balance, replayed }`, `listTransactions(ownerId, limit)`), no SQL and no `pg` import in the port file's types. Row shapes validated with the existing `coinBalanceRecordSchema`/`coinTransactionRecordSchema`
-- [ ] T013 [US2] In the same file add `PgCoinsRepository` implementing the port with **one SQL statement** per operation (research D3): a CTE that upserts `coin_balances` with `amount = coin_balances.amount ± $amount`, `version = version + 1`, `updated_at = now()` guarded by `WHERE coin_balances.amount ± $amount >= 0` (a debit that would go below 0 affects no row ⇒ `InsufficientBalanceError`), and inserts into `coin_transactions` the `resulting_balance` plus `idempotency_key` in the same statement. Idempotency (research D5): on `UNIQUE (owner_id, idempotency_key)` conflict, read the stored transaction; same direction+amount ⇒ return the original resulting balance with `replayed: true` and no new effect; different ⇒ throw `IdempotencyConflictError`. Constraints to honor verbatim: `amount > 0` integer, `amount >= 0` balance, `Idempotency-Key` 1..128 chars. Depends on T005, T012
-- [ ] T014 [P] [US2] Edit `apps/api/src/domains/coins/contracts.ts`: add `export class IdempotencyConflictError extends Error` and an `idempotencyKeySchema = z.string().min(1).max(128)`; keep `ConcurrencyConflictError` exported but unused-by-the-API (documented as reserved, `contracts/api-delta.md`)
-- [ ] T015 [US2] Rewrite `apps/api/src/domains/coins/service.ts` to depend only on the `CoinsRepository` port (constructor/parameter injection, default `PgCoinsRepository`): delete `applyTransactionOnce`/retry loop; `getBalance` returns `{ownerId, amount: 0, version: 0, updatedAt: new Date(0).toISOString()}` when there is no row; keep the exported function names (`getBalance`, `topUp`, `debit`, `listTransactions`) so routes and the OpenAPI document keep working. Depends on T012–T014
-- [ ] T016 [US2] Edit `apps/api/src/routes/coins.ts`: read optional header `Idempotency-Key` through `idempotencyKeySchema` (invalid ⇒ `400 invalid_idempotency_key`), pass it to the service; map `IdempotencyConflictError` ⇒ `409 idempotency_key_conflict`; keep `402 insufficient_balance`; remove the `ConcurrencyConflictError` ⇒ `409` branches. Response bodies and status codes for the existing cases stay identical (FR-014). Depends on T015
-- [ ] T017 [US2] Create `apps/api/scripts/verify-deploy.mjs` with the coins checks of `contracts/verification-suite.md`: #1 health, #2 structured 404, #3 no token ⇒ 401, #4 expired/tampered ⇒ 401, #5 token → credit → debit → balance → history, #6 over-debit ⇒ 402 with balance intact, #7 owner isolation, **#10 50 concurrent mixed operations** (count platform challenges — 403/429 with `x-vercel-mitigated` or `Retry-After` — separately from accepted-and-lost), **#11 balance == sum of returned history**, **#12 idempotency** (same key ×5 ⇒ one effect; same key different amount ⇒ 409). Env: `BASE_URL`, `AUTH_JWT_SECRET`, optional `PROTECTION_BYPASS` (header `x-vercel-protection-bypass`); fresh owner ids per run (`verify-<timestamp>-<n>`); exit code ≠ 0 on any failure; never print tokens or secrets. Reuse helpers from `scripts/smoke-test.mjs`
-- [ ] T018 [US2] Update `apps/api/src/openapi/document.ts` (spec 009) so the generated document describes the optional `Idempotency-Key` header and the `409 idempotency_key_conflict` / `400 invalid_idempotency_key` responses on `POST /coins/topup` and `/coins/debit`, and drops `concurrency_conflict` from them. Keep it generated from the Zod schemas (no hand-written duplicate)
-- [ ] T019 [US2] Run locally: `pnpm --dir apps/api dev:local` (port 4001) then `BASE_URL=http://localhost:4001/api AUTH_JWT_SECRET=<local> node apps/api/scripts/verify-deploy.mjs` ten times in a row; all coins checks pass with **zero** lost updates every time. If any run loses an update, stop and fix T013 before continuing. Depends on T007, T016, T017
+- [X] T016 [P] [US2] Port `CoinsRepository` in `apps/api/src/domains/coins/repository.ts` (`getBalance`, `applyOperation({ownerId, direction, amount, idempotencyKey?})` → `{ balance, replayed }`, `listTransactions`). **Unchanged by Prisma**
+- [X] T017 [P] [US2] `apps/api/src/domains/coins/contracts.ts`: `IdempotencyConflictError`, `InsufficientBalanceError`, `idempotencyKeySchema` (1..128 chars)
+- [X] T018 [US2] `apps/api/src/domains/coins/service.ts` depends only on the port (`createCoinsService(repository)`), no retry loop; `apps/api/src/routes/coins.ts` reads the optional `Idempotency-Key` (`400 invalid_idempotency_key`, `409 idempotency_key_conflict`, `402 insufficient_balance`)
+- [X] T019 [US2] `apps/api/src/openapi/document.ts` documents `Idempotency-Key` and the `400`/`409` responses on `POST /coins/topup` and `/coins/debit`
+- [X] T020 [US2] `apps/api/scripts/verify-deploy.mjs` coins checks #1–#7 and #10–#12 (platform challenges counted apart from lost updates)
+- [X] T021 [US2] (revision 2) `apps/api/src/domains/coins/neonCoinsRepository.ts`: one-statement CTE per operation, replay by key, unique-violation retry via `err.code === "23505"`
+- [X] T022 [US2] (2026-10-24, revision 2) `verify-deploy --repeat 10` against `dev:local` + Neon: 10/10 with zero lost updates; 20-request same-key race ⇒ 1 effect
+- [X] T023 (2026-10-24: `prismaCoinsRepository.ts`; ledger order is `resultingVersion desc` first (true commit order; `createdAt` is statement start time and can interleave); unique violation arrives as `PrismaClientKnownRequestError` code `23505` (not `P2002`/`P2010`), see research D14) [US2] Create `apps/api/src/domains/coins/prismaCoinsRepository.ts` implementing `CoinsRepository` (research D12, D14), replacing `neonCoinsRepository.ts` behavior one-for-one: `getBalance` via `prisma().balance.findUnique` (no row ⇒ `{ ownerId, amount: 0, version: 0, updatedAt: new Date(0).toISOString() }`, nothing written); `listTransactions` via `findMany({ where: { ownerId }, orderBy: [{ createdAt: "desc" }, { txId: "desc" }], take: limit })`; key lookup via `findUnique({ where: { ownerId_idempotencyKey: { ownerId, idempotencyKey } } })`; the **write stays one statement** — copy the credit and debit CTEs from `neonCoinsRepository.ts` unchanged into `prisma().$queryRaw` tagged templates (never `$queryRawUnsafe`) and validate the rows with the existing Zod `balanceRowSchema`. Convert every `BigInt` to `number` with a safe-integer check and every `DateTime` to ISO at the boundary; Prisma types MUST NOT leave this file. Same replay rules: same direction and amount ⇒ original result with `replayed: true`; otherwise `IdempotencyConflictError`; debit with no row returned ⇒ `InsufficientBalanceError`. Add `isUniqueViolation(err)` that recognises `Prisma.PrismaClientKnownRequestError` with `code === "P2002"` **and** the raw-query error whose adapter cause is a unique violation (`23505` / `UniqueConstraintViolation`). Depends on T010, T011
+- [X] T024 (2026-10-24: service swapped; `neonCoinsRepository.ts` deleted (by the peer session xd-04)) [US2] In `apps/api/src/domains/coins/service.ts` change only the default adapter: `createCoinsService(new PrismaCoinsRepository())`. Delete `apps/api/src/domains/coins/neonCoinsRepository.ts`. Depends on T023
+- [X] T025 (2026-10-24: `health.ts` via `prisma().$queryRaw` (written by the peer session xd-04); `/health` 200 verified) [US2] Edit `apps/api/src/routes/health.ts`: run `SELECT 1` through `prisma().$queryRaw`; keep `200 {"status":"ok"}`, `500 database_unavailable` (never echo the driver message) and `500 missing_database_url` exactly as now. Depends on T010
+- [X] T026 (2026-10-24: typecheck + lint clean; `--repeat 10 --skip-admin` 10/10 zero lost updates; 5 consecutive 20-request same-key races on a fresh server: all 200, 1 distinct body, balance 7, 1 ledger entry. First attempt found 19/20 errors: `isUniqueViolation` missed code `23505`; fixed) [US2] **Prisma gate (local).** `pnpm --dir apps/api typecheck && pnpm --dir apps/api lint`; start `pnpm --dir apps/api dev:local`; run `BASE_URL=http://localhost:4001/api AUTH_JWT_SECRET=<local> pnpm --dir apps/api verify:deploy --repeat 10 --skip-admin` ⇒ zero lost updates in 10 of 10; then fire 20 simultaneous `POST /coins/topup` with the same `Idempotency-Key` and the same amount ⇒ exactly 1 new transaction and 20 identical `200` bodies, **no `500`**. A `500` means `isUniqueViolation` (T023) does not recognise Prisma's error shape: log the error's `name`/`code`/`meta` keys (never values that contain the URL), fix the helper, rerun. Do not start US3 Prisma work before this passes. Depends on T024, T025
 
-**Checkpoint**: US2 is proven locally (SC-002, SC-003, SC-005). Production proof happens in T034/T035.
+**Checkpoint**: US2 proven locally on Prisma (SC-002, SC-003, SC-005).
 
 ---
 
@@ -90,15 +97,15 @@ description: "Task list for 010-api-production-backend"
 
 **Independent Test**: No direct address returns an admin or balance record; admin login still works with the same responses.
 
-- [ ] T020 [P] [US3] Create `apps/api/src/domains/admin/repository.ts` with the port `AdminRepository` (`findByEmail`, `upsert`, `listOwners(limit, cursor)`) and `PgAdminRepository`: `admins` table per data-model (`id` = sha256 hex of the normalized e-mail, unchanged; `role` always `'admin'`; `created_at` preserved on re-seed), and `listOwners` reading `coin_balances` ordered by `owner_id` with a keyset cursor (the `owner_id` of the last row), returning `{ owners: { ownerId, updatedAt }[], cursor?: string }` exactly as `blobStore.listOwners` does today. Move `normalizeEmail`/`adminIdFor` out of `blobStore.ts` into this file. Depends on T005
-- [ ] T021 [US3] Edit `apps/api/src/domains/admin/service.ts` to depend only on `AdminRepository` (replace every `blobStore.*`); keep `authenticateAdmin` verifying a hash even for an unknown e-mail (`getDummyHash`) so both failures stay indistinguishable (FR-009), and `upsertAdmin`'s 8-character minimum. Depends on T020
-- [ ] T022 [P] [US3] Edit `apps/api/scripts/seed-admin.ts` to require `DATABASE_URL` instead of `BLOB_READ_WRITE_TOKEN` and use the repository-backed `upsertAdmin`; credentials still only from `ADMIN_EMAIL`/`ADMIN_PASSWORD`, never from a file or a log (FR-010)
-- [ ] T023 [US3] Edit `apps/api/src/routes/health.ts`: after the secrets check run `SELECT 1` through `lib/db.ts`; return `200 {"status":"ok"}`, `500 database_unavailable` when the query fails, `500 missing_database_url` when the variable is absent (replaces `missing_blob_token`). Edit `apps/api/src/server.ts` `REQUIRED_ENV_VARS` to `["DATABASE_URL", "AUTH_JWT_SECRET"]`. Depends on T005
-- [ ] T024 [US3] Extend `apps/api/scripts/verify-deploy.mjs` with #8 admin login (correct ⇒ `role:"admin"` token; unknown e-mail and wrong password return the same status and body), #9 admin token rejected on owner routes and owner token rejected on admin routes, and **#13 direct-read denial**: none of the `DIRECT_PROBE_URLS` (comma-separated env) returns record data, and the admin's password hash never appears in any response body. Depends on T017
-- [ ] T025 [US3] Remove Blob: delete `apps/api/src/lib/blobStore.ts`, remove `@vercel/blob` from `apps/api/package.json`, remove `BLOB_READ_WRITE_TOKEN` from `.env.example`, and fix every remaining reference (`grep -ri "blob" apps/api/src apps/api/scripts` must find none except comments about history). Run `pnpm install` from the repo root. Depends on T015, T021, T022, T023
-- [ ] T026 [US3] Run locally: `pnpm --dir apps/api typecheck && pnpm --dir apps/api lint`; seed a local admin (`ADMIN_EMAIL=... ADMIN_PASSWORD=... pnpm --dir apps/api seed:admin`), run `scripts/admin-smoke-test.mjs` and the full `verify-deploy.mjs`; every check passes. Depends on T024, T025
+- [X] T027 [US3] Port `AdminRepository` in `apps/api/src/domains/admin/repository.ts` (`findByEmail`, `upsert` → `{ created }`, `listOwners(limit, cursor)`); `apps/api/src/domains/admin/service.ts` depends only on the port, keeps the dummy hash for indistinguishable failures and the 8-character minimum. **Unchanged by Prisma**
+- [X] T028 [US3] (revision 2) `apps/api/src/domains/admin/neonAdminRepository.ts`; `apps/api/scripts/seed-admin.ts` requires `DATABASE_URL` and uses `upsertAdmin`, credentials only from `ADMIN_EMAIL`/`ADMIN_PASSWORD`
+- [X] T029 [US3] `apps/api/scripts/verify-deploy.mjs` checks #8 (admin login, indistinguishable failures), #9 (role separation), #13 (direct-read denial, hash never in a response)
+- [X] T030 [US3] Blob removed from the code: `apps/api/src/lib/blobStore.ts` deleted, `@vercel/blob` and `BLOB_READ_WRITE_TOKEN` gone from `apps/api`
+- [X] T031 (2026-10-24: `prismaAdminRepository.ts` (written by the peer session xd-04)) [US3] Create `apps/api/src/domains/admin/prismaAdminRepository.ts` implementing `AdminRepository`: `findByEmail` via `prisma().admin.findUnique({ where: { email } })` mapped to `{ id, email, passwordHash }`; `upsert` via `prisma().admin.upsert({ where: { id }, create: { id, email, role: "admin", passwordHash }, update: { passwordHash } })` so `created_at` is preserved on re-seed, with `created` computed by a `findUnique({ where: { id } })` just before (single writer: only the seed script calls it); `listOwners` via `prisma().balance.findMany({ where: { ownerId: { gt: after } }, orderBy: { ownerId: "asc" }, take: limit + 1, select: { ownerId: true, updatedAt: true } })`, keeping the current base64url cursor encoding and page shape `{ owners: { ownerId, updatedAt }[], cursor }` exactly. `passwordHash` never leaves this file except through `findByEmail`. Depends on T010, T011
+- [X] T032 (2026-10-24: admin service swapped; `neonAdminRepository.ts` deleted; `grep neondatabase apps/api/src apps/api/scripts` finds nothing) [US3] In `apps/api/src/domains/admin/service.ts` change only the default adapter: `createAdminService(new PrismaAdminRepository())`. Delete `apps/api/src/domains/admin/neonAdminRepository.ts`. Then `grep -rn "neondatabase" apps/api/src apps/api/scripts` MUST find nothing (the driver is reached only through the adapter). Depends on T031
+- [ ] T033 [US3] Run locally: `pnpm --dir apps/api typecheck && pnpm --dir apps/api lint`; `ADMIN_EMAIL=... ADMIN_PASSWORD=... pnpm --dir apps/api seed:admin` twice (first `created`, then updated, `created_at` unchanged); `node apps/api/scripts/admin-smoke-test.mjs`; full `verify:deploy` with `ADMIN_EMAIL`/`ADMIN_PASSWORD` ⇒ all 14 checks `✓`. Depends on T026, T032
 
-**Checkpoint**: Storage is private and Blob is gone from the code (SC-004 locally).
+**Checkpoint**: Storage is private, Blob is gone, everything runs on Prisma locally (SC-004 locally).
 
 ---
 
@@ -108,60 +115,65 @@ description: "Task list for 010-api-production-backend"
 
 **Independent Test**: Follow only `quickstart.md` to a verified preview and a verified production.
 
-- [ ] T027 [US4] Extend `apps/api/scripts/verify-deploy.mjs` with **#14 latency** (first call plus 20 more, print p95 and whether ≤ 2 s) and a `--repeat N` flag that reruns the whole suite N times with fresh owners, failing on the first lost update. Depends on T024
-- [ ] T028 [P] [US4] Rewrite the storage sections of `apps/api/README.md`: Postgres instead of Blob; the env matrix of `contracts/api-delta.md`; setup with Docker Postgres + `db:migrate`; "Deploying" (framework preset, migrations, secrets via `vercel env`, preview → verify → promote); rollback with `vercel rollback`; remove the Blob "known limitations" 1–3 that no longer apply and **keep** the token-issuance limitation (spec Assumptions). State that the old hash was exposed and the admin password must be rotated
-- [ ] T029 [P] [US4] Update `specs/008-web-production-env/deploy-environments.md` API section: `DATABASE_URL` and `AUTH_JWT_SECRET` per environment instead of `BLOB_READ_WRITE_TOKEN`; link `specs/010-api-production-backend/quickstart.md`. No other 008 file changes
-- [ ] T030 [US4] **Needs the user's confirmation — creates external resources.** In the Vercel project `nft-marketplace-api` add the **Neon Postgres** integration (Marketplace) with separate branches for Preview and Production (quickstart step 3); ensure the variable is named `DATABASE_URL` and is the pooler URL; set `AUTH_JWT_SECRET` to **different** 32-byte hex values for Preview and Production; confirm with `vercel env ls`. Never print values
-- [ ] T031 [US4] Migrate and seed each remote database (quickstart step 4): `DATABASE_URL=<preview>` then `<production>` with `pnpm --dir apps/api db:migrate`, then `ADMIN_EMAIL=... ADMIN_PASSWORD='<NEW password>' pnpm --dir apps/api seed:admin`. The password MUST differ from the one used while the hash was publicly readable. Delete any `.env.*.local` pulled for this afterwards. Depends on T030
-- [ ] T032 [US4] **Needs the user's confirmation — deploys.** `vercel deploy` from `apps/api`; run `BASE_URL=https://<preview>/api PROTECTION_BYPASS=<secret> AUTH_JWT_SECRET=<preview> pnpm --dir apps/api verify:deploy`; all 14 checks `✓`. Depends on T025–T027, T031
-- [ ] T033 [US4] **Needs the user's confirmation — publishes to production.** `vercel deploy --prod` (or `vercel promote <preview>`); run `verify:deploy` against `https://nft-marketplace-api-ochre.vercel.app/api` and then against `https://nft-marketplace-web-wheat.vercel.app/backend` (end-to-end chain, FR-003); run once more with `-- --repeat 10` (SC-002: 10 of 10 with zero lost updates). Record the p95 from check #14 in `quickstart.md` under a "Resultado" heading
-- [ ] T034 [US4] **Needs the user's confirmation — deletes data.** Clean up the old storage (quickstart step 10): delete the old Blob objects (admin records first), remove the Blob store if nothing else uses it, remove `BLOB_READ_WRITE_TOKEN` from the project's env vars, and confirm no old public URL still returns an admin or balance record. Depends on T033
+- [X] T034 [US4] `apps/api/scripts/verify-deploy.mjs` check #14 (latency p95 ≤ 2 s) and `--repeat N`
+- [X] T035 [US4] (revision 2) `apps/api/README.md` storage sections rewritten for Postgres; `specs/008-web-production-env/deploy-environments.md` API section uses `DATABASE_URL`/`AUTH_JWT_SECRET`
+- [X] T036 (2026-10-24: README: Prisma section (setup/postinstall, `db:migrate`/`db:status`, baseline, schema changes, single raw statement, `23505`), deploy section with `DATABASE_URL_UNPOOLED`) [P] [US4] Update `apps/api/README.md` for Prisma: `pnpm install` generates the client (`postinstall`, `src/generated/prisma`, not committed); `.env.local` needs `DATABASE_URL` and `DATABASE_URL_UNPOOLED`; `pnpm db:migrate` = `prisma migrate deploy`, `pnpm db:status`; baseline steps for a branch created before Prisma; how to change the schema (`prisma migrate dev --create-only`, add CHECKs by hand, review, apply); why the balance write is raw SQL in one statement (research D12) and that `$queryRawUnsafe` is forbidden. Keep the token-issuance limitation and the rotate-the-admin-password note. Depends on T033
+- [X] T037 (2026-10-24: 008 table has the `DATABASE_URL_UNPOOLED` row) [P] [US4] Update `specs/008-web-production-env/deploy-environments.md` API section: add `DATABASE_URL_UNPOOLED` per environment (Prisma Migrate only); link `specs/010-api-production-backend/quickstart.md`. No other 008 file changes. Depends on T033
+- [X] T038 (2026-10-24: quickstart uses `pnpm exec vercel`, and step 3 now reflects that the Neon integration exists but Dev/Preview/Production share ONE endpoint (verified by host comparison, same as `.env.local`): separate branches are needed first) [US4] Reconcile `specs/010-api-production-backend/quickstart.md` with what actually ran in T011, T026 and T033: fix any command, flag, script name or expected message that differed; change nothing else. Depends on T033
+- [ ] T039 [US4] **Needs the user's confirmation — creates external resources.** (2026-10-24: the Neon integration is already installed and injects `DATABASE_URL`/`DATABASE_URL_UNPOOLED`, but all three environments share one endpoint; the user chose separate Neon branches: they create `preview`/`development` branches in the Neon console, then repoint the Vercel Preview/Development variables — see quickstart step 3) In the Vercel project `nft-marketplace-api` add the **Neon Postgres** integration (Marketplace) with separate branches for Preview and Production (quickstart step 3); confirm with `vercel env ls` that `DATABASE_URL` (pooled) **and** `DATABASE_URL_UNPOOLED` (direct) exist for both, creating them from `POSTGRES_URL`/`POSTGRES_URL_NON_POOLING` if named differently; add `AUTH_JWT_SECRET` for Preview with a value **different** from Production's. Never print values
+- [ ] T040 [US4] Migrate and seed each remote branch (quickstart step 4): `DATABASE_URL_UNPOOLED=<preview direct> pnpm --dir apps/api exec prisma migrate deploy`, then `DATABASE_URL=<preview> ADMIN_EMAIL=... ADMIN_PASSWORD='<NEW password>' pnpm --dir apps/api exec tsx scripts/seed-admin.ts`; repeat for production. The password MUST differ from the one used while the hash was publicly readable. `prisma migrate status` on each branch = up to date. Delete any `.env.*.local` pulled for this afterwards. Depends on T039
+- [ ] T041 [US4] **Needs the user's confirmation — deploys.** `vercel deploy` from `apps/api`; in the build log confirm `prisma generate` ran in `postinstall` (no "Ignored build scripts"); run `BASE_URL=https://<preview>/api PROTECTION_BYPASS=<secret> AUTH_JWT_SECRET=<preview> ADMIN_EMAIL=... ADMIN_PASSWORD=... pnpm --dir apps/api verify:deploy`; all 14 checks `✓`. This is the end-to-end test the constitution requires before Blob stops being used: **no promotion without it**. A `500` on every route including `/health` means the client was not generated (research D15). Depends on T033, T040
+- [ ] T042 [US4] **Needs the user's confirmation — publishes to production.** `vercel promote <preview-url>` (or `vercel deploy --prod`); run `verify:deploy` against `https://nft-marketplace-api-ochre.vercel.app/api` and then against `https://nft-marketplace-web-wheat.vercel.app/backend` (FR-003); run once more with `--repeat 10 --skip-admin` (SC-002: 10 of 10, zero lost updates). Record the p95 from check #14 in `specs/010-api-production-backend/quickstart.md` under a "Resultado" heading. Depends on T041
+- [ ] T043 [US4] **Needs the user's confirmation — deletes data.** Clean up the old storage (quickstart step 10): delete the old Blob objects (admin records first), remove the Blob store if nothing else uses it, remove `BLOB_READ_WRITE_TOKEN` from the project's env vars, and run check #13 with `DIRECT_PROBE_URLS=<old admin URLs>` ⇒ none returns a record. After this, `vercel rollback` to a pre-database deploy no longer works. Depends on T042
 
-**Checkpoint**: Production is verified end to end, repeatably (SC-001–SC-007).
+**Checkpoint**: Production is verified end to end on Prisma, repeatably (SC-001–SC-007).
 
 ---
 
 ## Phase 7: Polish & Cross-Cutting
 
-- [ ] T035 Regression gate from the repo root: `pnpm typecheck`, `pnpm lint`, `pnpm build`, then `pnpm --dir apps/web exec playwright test`; the result must equal the pre-feature one (only the 6 known stale `checkout`/`wallets` snapshots fail; SC-008). Confirm `git status` shows no change under `server/`, `apps/web/` (except none expected), `specs/006-platform-coins/`, `specs/007-monorepo-vercel-blob/` (FR-015)
-- [ ] T036 Re-read `spec.md` FR-001…FR-015 and SC-001…SC-008 against the final state and list in the completion report which are verified (and how) and which are not; expected open items, if any: SC-006 on cold starts depends on the measured p95
+- [ ] T044 Regression gate from the repo root: `pnpm typecheck`, `pnpm lint`, `pnpm build`, then `pnpm --dir apps/web exec playwright test`; the result must equal the pre-feature one (only the 6 known stale `checkout`/`wallets` snapshots fail; SC-008). `git status` shows no change under `server/`, `apps/web/`, `specs/006-platform-coins/`, `specs/007-monorepo-vercel-blob/` (FR-015), and nothing under `apps/api/src/generated/` is tracked
+- [ ] T045 Re-read `specs/010-api-production-backend/spec.md` FR-001…FR-015 and SC-001…SC-008 against the final state and list in the completion report which are verified (and how) and which are not; expected open item, if any: SC-006 on cold starts with the larger Prisma bundle, per the p95 recorded in T042
 
 ---
 
 ## Dependencies & Execution Order
 
-- **Phase 1** → **Phase 2** (needs T001 approved) → **US2/US3/US4 DB work**.
-- **US1 (T008–T011)** has no dependency on Phase 1 or 2 — it can run first, in parallel with T001's review, and ships alone.
-- US2 → US3: T020/T021 use `lib/db.ts` (T005) and the migrated schema (T007); T024 extends the script created in T017; T025 (remove Blob) needs T015, T021, T022, T023.
-- US4's remote steps (T030–T034) need all code done (T025–T027) and the user's confirmations.
-- Same-file sequences: `verify-deploy.mjs` = T017 → T024 → T027; `package.json` = T002 → T025; `coins/repository.ts` = T012 → T013.
+- **T002 (amendment 1.6.0)** gates every Prisma task. Declined ⇒ skip T003, T004, T007–T011, T023–T026, T031, T032, T036, T037 and run T033 → T039–T045 on the revision-2 code.
+- **Phase 1** (T003 → T004) → **Phase 2** (T007 → T009; T008 and T010 after T003/T007; T011 last) → **US2** (T023 → T024; T025; gate T026) → **US3** (T031 → T032 → T033) → **US4** (docs T036–T038; remote T039 → T040 → T041 → T042 → T043) → **Polish** (T044, T045).
+- US3's Prisma adapter (T031) technically needs only T010/T011, but starts after the US2 gate (T026) so a Prisma error-shape problem is fixed once, in one place.
+- Same-file sequences: `apps/api/package.json` = T003 only; `lib/db.ts` = T010; `coins/service.ts` = T024; `admin/service.ts` = T032; `README.md` = T036.
 
 ### Parallel opportunities
 
-- T002, T003 together. T005 alongside T004.
-- T012, T014 (different files) together; T020, T022, T023 are independent of each other; T028, T029 together.
+- T004 alongside T003's install (different files); T008 alongside T007.
+- T025 alongside T023 (different files, both need only T010).
+- T036 and T037 together.
 
 ```text
-Task: "T012 CoinsRepository port in domains/coins/repository.ts"
-Task: "T014 IdempotencyConflictError + idempotencyKeySchema in domains/coins/contracts.ts"
-Task: "T005 lib/db.ts (Pool, fail-fast)"
+Task: "T007 apps/api/prisma/schema.prisma"
+Task: "T008 apps/api/prisma.config.ts"
+--- after T010 ---
+Task: "T023 apps/api/src/domains/coins/prismaCoinsRepository.ts"
+Task: "T025 apps/api/src/routes/health.ts via prisma().$queryRaw"
 ```
 
 ## Implementation strategy
 
-### MVP first (US1)
+### MVP (US1): done
 
-T008–T011: deploy the code that exists and verify `/api/health` in production and through the site. This alone unblocks the 008 (T014) and gives a working back-end link, with the known storage defects still documented.
+The API answers in production and through the site (T012–T015), still on Blob.
 
-### Incremental delivery
+### Incremental delivery from here
 
-1. + Phase 1–2 and US2 (T012–T019): correctness of the balance, proven locally.
-2. + US3 (T020–T026): private storage, Blob removed.
-3. + US4 (T027–T034): remote database, verified production, cleanup.
-4. Polish (T035–T036).
+1. T002 approval → Phase 1–2: Prisma installed, schema and dev branch under Prisma Migrate.
+2. US2 on Prisma (T023–T026): the balance is still correct, now through the ORM; same-key race gate.
+3. US3 on Prisma (T031–T033): admin adapter swapped; full 14-check run locally.
+4. US4 (T036–T043): docs, remote branches, verified preview, promotion, Blob cleanup.
+5. Polish (T044–T045).
 
 ## Notes
 
-- External actions need the user's explicit confirmation immediately before running: T001 (constitution), T009/T010 (deploys), T030 (integration), T032/T033 (deploys), T034 (data deletion). Never print env values, tokens or hashes.
-- If a task seems to require editing `server/`, `apps/web/` (beyond nothing) or specs 006/007, stop and re-check the plan.
-- If T019 shows any lost update, the atomic statement (T013) is wrong — do not proceed to US3/US4 until it is fixed.
+- External actions need the user's explicit confirmation immediately before running: T002 (constitution), T039 (integration), T041/T042 (deploys), T043 (data deletion). Never print env values, tokens or hashes.
+- The atomic write is the **only** raw SQL in `apps/api`; any other `$queryRaw` needs a reason in the PR. `$queryRawUnsafe`/`$executeRawUnsafe` are forbidden.
+- If a task seems to require editing `server/`, `apps/web/` or specs 006/007, or changing `apps/api/vercel.json`, stop and re-check the plan.

@@ -30,6 +30,8 @@ Saída: uma linha `✓`/`✗` por checagem; código de saída `0` só se todas p
 | 12 | **Idempotência**: a mesma chave repetida 5 vezes ⇒ efeito único; mesma chave com valor diferente ⇒ `409` | SC-005 |
 | 13 | **Leitura direta negada**: nenhuma das `DIRECT_PROBE_URLS` (e nenhum padrão de URL pública de objeto) devolve dado de admin/saldo; o hash do admin do teste não aparece em nenhuma resposta | SC-004 |
 | 14 | Latência: mede a primeira chamada e 20 seguintes; informa p95 e se ≤ 2 s | SC-006 |
+| 15 | `GET /openapi.json` ⇒ `200` com `openapi` e os 6 caminhos públicos (`/health`, `/auth/token`, `/coins/*`); `GET /docs` ⇒ `200` HTML do Swagger UI. Avisa (sem falhar) se `/admin/*` não estiver documentado | 009, FR-001 |
+| 16 | `/admin/owners?limit=2` devolve `cursor`; a página seguinte continua a primeira (ordem crescente, sem repetir `ownerId`); `/admin/owners/:ownerId` devolve o dono pedido. Pulada com `--skip-admin` | 007 rotas admin, FR-001 |
 
 ## Regras
 

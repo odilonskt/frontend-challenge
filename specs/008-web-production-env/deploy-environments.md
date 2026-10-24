@@ -9,7 +9,7 @@ Vercel por aplicação** (D1), sem `vercel.json` de serviços na raiz.
 | Projeto | Pasta | Vercel | URL | Estado |
 |---|---|---|---|---|
 | Front-end | `apps/web` | projeto `nft-marketplace-web` (preset Vite, estático) | `*.vercel.app` | a criar (esta feature) |
-| API | `apps/api` | projeto `nft-marketplace-api` (função Express em `api/index.ts`) | `https://nft-marketplace-api-ochre.vercel.app` | publicado, `/api/*` ainda `404` (007 T022/T023) |
+| API | `apps/api` | projeto `nft-marketplace-api` (função Express em `api/index.ts`) | `https://nft-marketplace-api-ochre.vercel.app` | publicado, `/api/*` respondendo (2026-10-24) |
 | Moedas (006) | `server/` | **não implantável** (SQLite local) | n/a | fora do deploy; moedas ocultas em produção |
 
 Ligação: navegador → `web` (`/backend/*` rewrite) → `api` (`/api/*`). O `web` nunca chama a API por URL
@@ -46,16 +46,17 @@ Segredos: **só** no projeto Vercel (`vercel env add`), nunca em arquivo version
 
 | Variável | Desenvolvimento (`apps/api/.env.local`) | Preview | Produção |
 |---|---|---|---|
-| `BLOB_READ_WRITE_TOKEN` | token do Blob store de dev | token do store (escopo Preview) | token do store (escopo Production) |
+| `DATABASE_URL` | URL do Postgres (Neon) de dev — `vercel env pull .env.local` | ramo Neon de Preview (URL do *pooler*) | ramo Neon de Produção (URL do *pooler*) |
+| `DATABASE_URL_UNPOOLED` | conexão direta do mesmo ramo de dev (só o Prisma Migrate) | conexão direta do ramo de Preview | conexão direta do ramo de Produção |
 | `AUTH_JWT_SECRET` | segredo local qualquer | segredo próprio do Preview | segredo **distinto** e forte (32 bytes hex) |
 | `PORT` | `4001` (só `dev:local`) | n/a | n/a |
 
 Configurações do projeto Vercel: Root Directory `apps/api`; `framework: null` e `buildCommand: ""` (o preset
 `express` devolve `404` em `/api/*`); rewrite `/api/(.*)` → `/api/index` em `apps/api/vercel.json`. A correção
-do `404` atual pertence à 007 — esta feature só a verifica (FR-013).
+do `404` foi entregue (API respondendo em 2026-10-24); a verificação repetível é `pnpm --dir apps/api verify:deploy`.
 
-Riscos conhecidos herdados da 007: o saldo em Blob perde atualizações sob concorrência (SC-003 da 007
-falha); aceitável para demo, inaceitável como "produção real" de moedas.
+Armazenamento (010): Postgres no Neon substitui o Vercel Blob; o saldo é atômico e idempotente. Guia de
+implantação e verificação: `specs/010-api-production-backend/quickstart.md`.
 
 ## `server/` — moedas (006)
 

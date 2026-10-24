@@ -4,6 +4,7 @@ import {
   amountSchema,
   coinBalanceRecordSchema,
   coinTransactionRecordSchema,
+  idempotencyKeySchema,
   transactionsQuerySchema,
 } from "../domains/coins/contracts.js"
 
@@ -107,6 +108,9 @@ export const limitParameterSchema: JsonSchema = ((): JsonSchema => {
   const properties = (query["properties"] ?? {}) as Record<string, JsonSchema>
   return properties["limit"] ?? {}
 })()
+
+/** Schema for the optional `Idempotency-Key` header, from the SAME `idempotencyKeySchema` the routes validate with. */
+export const idempotencyKeyHeaderSchema: JsonSchema = toJsonSchema(idempotencyKeySchema, "input")
 
 /** Reusable `$ref` helper for building the paths object. */
 export const schemaRef = ref
