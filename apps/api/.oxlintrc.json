@@ -1,6 +1,7 @@
 {
   "$schema": "./node_modules/oxlint/configuration_schema.json",
   "plugins": ["typescript", "oxc"],
+  "ignorePatterns": ["src/generated/**"],
   "rules": {
     "typescript/no-explicit-any": "error",
     "typescript/no-unsafe-function-type": "error",

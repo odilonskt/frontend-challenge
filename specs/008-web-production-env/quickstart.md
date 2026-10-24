@@ -86,7 +86,7 @@ curl -s -H "x-vercel-protection-bypass: $BYPASS" $URL/backend/health
 ```
 
 - Esperado: `{"status":"ok"}` vindo da **API real**. Para distinguir do mock, compare com a API direta:
-  `curl -s https://nft-marketplace-api-teal.vercel.app/api/health`.
+  `curl -s https://nft-marketplace-api-ochre.vercel.app/api/health`.
 - **Se a API devolver `404`**: US2 está bloqueada (FR-013). Não promova como concluída; resolva a 007
   (T022/T023) primeiro. US1 e US3 seguem válidas.
 - Fluxo completo (token → crédito → débito → saldo): mesmo roteiro do `quickstart.md` da 007, trocando a base

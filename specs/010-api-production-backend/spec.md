@@ -10,7 +10,7 @@
 
 Fatos verificados no repositório e nos deploys (não supostos):
 
-1. **A API de produção responde `404` em todas as rotas `/api/*`** (`nft-marketplace-api-teal.vercel.app`, `/api/health` = `404` da plataforma). O projeto foi criado com o preset de framework errado; a correção (`framework: null`, `buildCommand: ""`) existe em `apps/api/vercel.json`, mas nunca foi implantada em produção. A 007 só verificou um preview.
+1. **A API de produção responde `404` em todas as rotas `/api/*`** (`nft-marketplace-api-ochre.vercel.app`, `/api/health` = `404` da plataforma). O projeto foi criado com o preset de framework errado; a correção (`framework: null`, `buildCommand: ""`) existe em `apps/api/vercel.json`, mas nunca foi implantada em produção. A 007 só verificou um preview.
 2. **O front-end publicado chega à API pelo rewrite `/backend/*`**; hoje `GET /backend/health` no site público também devolve `404`, porque o destino está quebrado.
 3. **O saldo de moedas perde atualizações sob concorrência.** Medido em 2026-10-23 contra um deploy real: 12 créditos de +1 simultâneos → 10 aceitos, 2 recusados, saldo final **4** (deveria ser 10). O armazenamento atual não oferece escrita condicional atômica, e leituras logo após a escrita podem devolver versão antiga. O critério SC-003 da 007 (50 operações concorrentes, zero atualização perdida) **falha**. O histórico de transações permanece íntegro, então saldo e histórico podem divergir.
 4. **Registros de administradores ficam em armazenamento acessível por URL pública**: o hash da senha de cada admin é um objeto legível por qualquer pessoa que conheça o endereço. É um hash salgado (nunca senha em claro), mas não é armazenamento privado.

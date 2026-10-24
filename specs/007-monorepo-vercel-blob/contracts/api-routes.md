@@ -36,11 +36,11 @@ exatamente o passo que confia no id pedido (ver limitação acima).
 
 ## GET /api/health
 
-Verifica se a function e a configuração do Blob (token presente) estão OK.
+Verifica a function e a conexão com o Postgres (`SELECT 1`).
 
 - **200**: `{ "status": "ok" }`
-- **500**: `{ "error": { "code": "missing_blob_token", "message": "..." } }` quando
-  `BLOB_READ_WRITE_TOKEN` não está configurado (FR-010).
+- **500**: `{ "error": { "code": "missing_database_url", "message": "..." } }` quando `DATABASE_URL` não está
+  configurado, ou erro estruturado se o banco não responder (FR-010, constituição 1.5.0).
 
 Todas as rotas abaixo (`/api/coins/*`) exigem `Authorization: Bearer <token>`. O `ownerId` usado em
 cada operação é sempre o `sub` do token — nunca um valor enviado separadamente pelo chamador.
@@ -65,10 +65,7 @@ Credita o saldo do owner identificado pelo token.
   gravado.
 - **400**: body inválido (amount ausente, zero, negativo ou não-inteiro).
 - **401**: token ausente, expirado ou com assinatura inválida — nada é lido nem escrito no Blob.
-- **409**: conflito de concorrência detectado no double-check (research.md D5) — o chamador MUST
-  tentar de novo (reler o saldo e reenviar).
-- **500**: falha ao ler/escrever no Blob (inclui o Blob estar inacessível a meio da operação —
-  Edge Cases da spec); a resposta MUST deixar claro que nada foi aplicado.
+- **500**: falha no banco; nada foi aplicado (crédito/débito são uma única instrução SQL atômica).
 
 ## POST /api/coins/debit
 
@@ -80,7 +77,6 @@ Debita o saldo do owner identificado pelo token.
 - **400**: body inválido.
 - **401**: token ausente, expirado ou com assinatura inválida.
 - **402**: saldo insuficiente (`amount atual < amount solicitado`) — nada é escrito.
-- **409**: conflito de concorrência (igual ao topup).
 - **500**: igual ao topup.
 
 ## GET /api/coins/transactions
@@ -112,7 +108,7 @@ Token de admin: `role: "admin"`, emitido só por `POST /api/admin/login`. Token 
 
 - **Query**: `limit` (1–200, default 50), `cursor` (da resposta anterior)
 - **200**: `{ "owners": [{ "ownerId": "string", "updatedAt": "ISO-8601" }], "cursor": "string | omitido" }`
-  — vem dos metadados do Blob (sem leitura por dono). **400** query inválida.
+  — paginação por `ownerId` (cursor opaco). **400** query inválida.
 
 ### GET /api/admin/owners/:ownerId
 

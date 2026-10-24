@@ -122,35 +122,25 @@ async function main() {
   const tokenC = await issueToken(ownerC)
   const CONCURRENT_COUNT = 50
 
-  async function topUpOneWithRetry() {
-    for (let attempt = 0; attempt < 10; attempt += 1) {
-      const { status, json } = await request("POST", "/coins/topup", { token: tokenC, body: { amount: 1 } })
-      if (status === 200) return
-      // 409: a genuine optimistic-concurrency conflict (FR-008) — expected under load, retry.
-      // 500 blob_read_failed: Vercel's Blob CDN can reject a burst of same-pathname requests
-      // (either a brief read-after-write propagation gap, or — at high concurrency — its own
-      // bot-protection challenge on *.public.blob.vercel-storage.com; see README.md "Known,
-      // documented limitations"). Neither case is a lost update: nothing was written, so it's
-      // safe to retry the whole operation.
-      const isRetryableBlobHiccup = status === 500 && json?.error?.code === "blob_read_failed"
-      if (status !== 409 && !isRetryableBlobHiccup) {
-        throw new Error(`unexpected top-up status during concurrency test: ${status} ${JSON.stringify(json)}`)
-      }
+  async function topUpOne() {
+    // Postgres applies each top-up atomically: no 409 and no retry loop (the old Blob-era conflict is gone).
+    const { status, json } = await request("POST", "/coins/topup", { token: tokenC, body: { amount: 1 } })
+    if (status !== 200) {
+      throw new Error(`unexpected top-up status during concurrency test: ${status} ${JSON.stringify(json)}`)
     }
-    throw new Error("exceeded retry budget on 409 conflicts / blob read hiccups")
   }
 
   try {
-    await Promise.all(Array.from({ length: CONCURRENT_COUNT }, () => topUpOneWithRetry()))
+    await Promise.all(Array.from({ length: CONCURRENT_COUNT }, () => topUpOne()))
     const { json } = await request("GET", "/coins/balance", { token: tokenC })
     json.amount === CONCURRENT_COUNT
       ? ok(`${CONCURRENT_COUNT} concurrent top-ups -> balance exactly ${CONCURRENT_COUNT} (SC-003)`)
       : fail(`expected ${CONCURRENT_COUNT}, got ${json.amount} — lost update(s) detected`)
   } catch (err) {
     // Record and continue instead of aborting the whole run, so later checks
-    // (transaction history, documentation) still report. This path is the known
-    // Vercel Blob limitation (007 T037 / optimistic concurrency, no CAS).
-    fail(`concurrency check could not complete (known Blob limitation): ${err.message}`)
+    // (transaction history, documentation) still report. With Postgres every top-up
+    // is atomic, so any non-200 here is a real failure, not a known limitation.
+    fail(`concurrency check could not complete: ${err.message}`)
   }
 
   // 9. Transaction history ordering — only the 2 accepted ops (credit 100, debit 40);
@@ -217,8 +207,9 @@ async function main() {
 
       // 10f. Known limitations stated in the description; no secrets leaked (FR-009/SC-007).
       const desc = String(doc.info?.description ?? "")
-      const statesLimits = /ownerId/.test(desc) && /Blob/i.test(desc)
-      const leaksSecret = /AUTH_JWT_SECRET\s*=|BLOB_READ_WRITE_TOKEN\s*=/.test(JSON.stringify(doc))
+      // Current limitations: token issuance trusts ownerId; persistence is Postgres (constitution 1.5.0).
+      const statesLimits = /ownerId/.test(desc) && /Postgres/i.test(desc)
+      const leaksSecret = /AUTH_JWT_SECRET\s*=|DATABASE_URL\s*=|postgres(ql)?:\/\/[^\s"]*@/.test(JSON.stringify(doc))
       statesLimits && !leaksSecret
         ? ok("description states known limitations, no secrets leaked (FR-009/SC-007)")
         : fail(`limitations/secrets check failed: statesLimits=${statesLimits} leaksSecret=${leaksSecret}`)

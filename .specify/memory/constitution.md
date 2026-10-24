@@ -1,6 +1,6 @@
 <!--
 Sync Impact Report
-- Version change: 1.1.0 → 1.2.0 → 1.2.1 → 1.3.0 → 1.4.0
+- Version change: 1.1.0 → 1.2.0 → 1.2.1 → 1.3.0 → 1.4.0 → 1.5.0 → 1.6.0
 - Modified principles: nenhum (nenhum princípio existente foi removido ou redefinido de forma
   incompatível; a mudança abaixo é uma segunda exceção aditiva, escopada a um workspace novo
   `apps/api` + `apps/web`, sem alterar `server/`, a exceção de 1.1.0, nem o restante de `src/`)
@@ -11,6 +11,23 @@ Sync Impact Report
   assinado e verificado (JWT) por requisição, derivado só do token" — uma mudança material de
   comportamento (não só de redação), por isso MINOR em vez de PATCH; a limitação de que a emissão do
   token ainda confia no id pedido (sem login real) permanece e fica documentada explicitamente
+- 1.4.0: `apps/api` ganha login real **apenas para administradores** (e-mail + senha com hash scrypt,
+  token JWT com `role: "admin"`) e rotas `/admin/*` somente leitura; ampliação do modelo de identidade da
+  exceção 1.3.0 por pedido explícito do usuário; os donos de saldo continuam sem login real
+- 1.5.0: `apps/api` passa a poder usar **Postgres no Neon** (`@neondatabase/serverless`) e migrar saldo,
+  transações e administradores do Blob para ele — revoga a frase "nenhum driver de banco relacional" da
+  1.2.0 e a decisão de "Blob para tudo" da spec 007 (FR-007), por pedido explícito do usuário, porque o
+  Blob não tem transações (SC-003 não é atendido) nem armazenamento privado
+- 1.6.0: `apps/api` passa a acessar o Postgres pelo **Prisma ORM** (`@prisma/client`, `prisma`,
+  `@prisma/adapter-neon` sobre `@neondatabase/serverless`), com esquema e migrações em
+  `apps/api/prisma/` (Prisma Migrate) — revoga "acessado só por `@neondatabase/serverless`; nenhum ORM"
+  da 1.5.0, por pedido explícito do usuário (plano da 010, revisão 3). SQL cru fica restrito a
+  `$queryRaw` parametrizado (as variantes `Unsafe` são proibidas) e `DATABASE_URL_UNPOOLED` (usada só
+  pelo Migrate) entra na regra de "só em variável de ambiente". MINOR: expansão material da stack
+  permitida, sem remover nem redefinir princípio; o restante da exceção fica literalmente igual
+- Modified sections: "Exceção Pontual: Monorepo na Vercel com Vercel Blob" — só a frase de persistência
+  do item "Stack permitida dentro de `apps/api`"
+- Templates/commands: nenhum alterado (leem a constituição em tempo de execução)
 - Removed sections: nenhum
 - Follow-up TODOs: nenhum
 -->
@@ -142,12 +159,25 @@ armazenamento.
 - Stack permitida dentro de `apps/api`: Node.js, TypeScript, **Express** (mesmo framework já usado
   em `server/`, montado atrás de uma única Vercel Function catch-all), `cors`, `zod`, o SDK
   `@vercel/blob`, e uma biblioteca de JWT (ex. `jsonwebtoken`) para o modelo de identidade abaixo.
-  Nenhum driver de banco relacional é introduzido.
+  Persistência de dados sensíveis/estruturados (1.5.0, revista em 1.6.0): **Postgres no Neon**,
+  acessado pelo **Prisma ORM** (`@prisma/client`, `prisma`) com o adaptador `@prisma/adapter-neon` sobre
+  `@neondatabase/serverless`; nenhum outro ORM, driver ou banco. Esquema e migrações MUST viver em
+  `apps/api/prisma/` (Prisma Migrate). SQL cru só por *tagged template* parametrizado (`$queryRaw`),
+  nunca pelas variantes `Unsafe` (`$queryRawUnsafe`, `$executeRawUnsafe`). As strings de conexão
+  (`DATABASE_URL` e `DATABASE_URL_UNPOOLED`) MUST viver só em variável de ambiente, nunca em arquivo do
+  repositório, log ou resposta da API.
 - `apps/api` persiste dados via **Vercel Blob**, incluindo dados estruturados (saldo e histórico de
   transações do recurso de exemplo) — uma escolha deliberada, feita cientes de que Blob não tem
   transações nem locks nativos; a mitigação exigida é controle de concorrência otimista (ler versão
   atual, escrever nova versão, rejeitar/repetir em conflito), documentada como limitação aceita e
   nunca apresentada como consistência transacional real.
+- Migração Blob → Postgres (1.5.0): saldo, transações e administradores de `apps/api` passam a ser
+  guardados no Postgres, onde o controle de concorrência é feito pelo banco (ex. `UPDATE ... WHERE
+  amount >= $1` atômico, em vez da concorrência otimista sobre Blob) e o armazenamento deixa de ser
+  público. Enquanto algum dado ainda estiver no Blob, valem para ele as exigências acima (mitigação de
+  concorrência documentada e a divulgação de que o Blob não é armazenamento privado). O Blob continua
+  permitido para arquivos não sensíveis. A migração MUST ser testada de ponta a ponta antes de o Blob
+  deixar de ser usado para esses dados, e `server/` (006) continua intocado.
 - `server/` (a exceção de 1.1.0, usada por `006-platform-coins`) MUST NOT ser modificado, movido ou
   substituído por esta exceção — as duas coexistem; reconciliar/aposentar `server/` em favor de
   `apps/api` é trabalho futuro fora do escopo desta emenda.
@@ -191,4 +221,4 @@ expansão material; PATCH para esclarecimentos e correções de redação. Revis
 `/speckit-analyze` MUST verificar conformidade; regras de fronteira (Princípio I) são impostas
 automaticamente por `pnpm lint`. Orientação de uso diário: `docs/TEAMS.md` e `docs/CHALLENGE.md`.
 
-**Version**: 1.4.0 | **Ratified**: 2026-10-14 | **Last Amended**: 2026-10-24
+**Version**: 1.6.0 | **Ratified**: 2026-10-14 | **Last Amended**: 2026-10-24

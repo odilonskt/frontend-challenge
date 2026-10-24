@@ -53,7 +53,7 @@ build de produção seguro por omissão (esquecer a variável não mocka o back-
 ## D4: Como `/backend/*` chega à API em produção
 
 **Decision**: rewrite estático em `apps/web/vercel.json`, antes do fallback da SPA:
-`/backend/:path*` → `https://nft-marketplace-api-teal.vercel.app/api/:path*`.
+`/backend/:path*` → `https://nft-marketplace-api-ochre.vercel.app/api/:path*`.
 
 **Rationale**: mesma origem para o navegador (sem CORS, sem expor a origem da API, o token trafega só
 para a própria origem). É o que o Vite faz em dev (D8 da 007), então dev e produção têm o mesmo

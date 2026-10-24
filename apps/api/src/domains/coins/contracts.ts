@@ -45,14 +45,19 @@ export const transactionsQuerySchema = z.object({
 
 export type TransactionsQuery = z.infer<typeof transactionsQuerySchema>
 
+/** Optional `Idempotency-Key` header of `POST /coins/topup` and `/coins/debit` (1..128 characters). */
+export const idempotencyKeySchema = z.string().min(1).max(128)
+
 export class InsufficientBalanceError extends Error {
   constructor() {
     super("Insufficient balance for this debit.")
   }
 }
 
-export class ConcurrencyConflictError extends Error {
+/** The same `Idempotency-Key` was already used for a different direction or amount. */
+export class IdempotencyConflictError extends Error {
   constructor() {
-    super("The balance was modified concurrently; retry the operation.")
+    super("Idempotency-Key was already used with a different operation.")
   }
 }
+

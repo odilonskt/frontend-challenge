@@ -36,13 +36,15 @@ isolamento por dono, `role: "admin"` e login indistinguível permanecem como est
 
 | Variável | Desenvolvimento | Preview | Produção |
 |---|---|---|---|
-| `DATABASE_URL` | Postgres local (Docker) | banco de preview (ramo Neon) | banco de produção (URL do *pooler*) |
+| `DATABASE_URL` | ramo Neon de desenvolvimento (`.env.local`, research D11) | ramo Neon de preview | ramo Neon de produção |
+| `DATABASE_URL_UNPOOLED` | conexão direta do mesmo ramo; usada só pelo Prisma Migrate (research D7) | idem, ramo de preview | idem, ramo de produção |
 | `AUTH_JWT_SECRET` | qualquer segredo local | segredo próprio | segredo **distinto**, 32 bytes hex |
 | `PORT` | `4001` (só `dev:local`) | n/a | n/a |
 
-`BLOB_READ_WRITE_TOKEN` deixa de existir. Segredos só no projeto Vercel / `.env.local` (não versionado).
+`BLOB_READ_WRITE_TOKEN` deixa de existir. Segredos só no projeto Vercel / `.env.local` (não versionado). Cada
+ambiente tem ramo e segredo próprios; nenhum valor é compartilhado entre preview e produção.
 
 ## Rewrite do site (inalterado)
 
-`apps/web/vercel.json`: `/backend/:path*` → `https://nft-marketplace-api-teal.vercel.app/api/:path*`. Se o
+`apps/web/vercel.json`: `/backend/:path*` → `https://nft-marketplace-api-ochre.vercel.app/api/:path*`. Se o
 domínio da API mudar, editar e republicar o site.

@@ -3,17 +3,42 @@
 A real (not mocked) backend, independent of `server/` (the `006-platform-coins` backend — not
 touched by this feature). Deployed as Vercel Serverless Functions, built as a single Express app
 (`src/app.ts`) mounted behind one catch-all function (`api/index.ts`). Persists its data in
-**Vercel Blob**, including the structured balance/transaction example resource. See
+**Postgres on Neon**, accessed through **Prisma ORM** (`@prisma/client` + `@prisma/adapter-neon` over
+`@neondatabase/serverless`; constitution 1.6.0): balances, the transaction ledger and admins. It used Vercel Blob until 2026-10-24; that store is no longer read or written. See
 `specs/007-monorepo-vercel-blob/` for the full spec, plan, research, data model, and API contract.
 
 ## Setup
 
 ```sh
 cp apps/api/.env.example apps/api/.env.local
-# fill in BLOB_READ_WRITE_TOKEN (Vercel dashboard -> Storage -> Blob, or `vercel blob store add`)
+# DATABASE_URL and DATABASE_URL_UNPOOLED come from the Neon integration: `vercel env pull .env.local`
 # generate AUTH_JWT_SECRET with:
 node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 ```
+
+`pnpm install` (from the repo root) also runs `prisma generate` (the `postinstall` of `apps/api`), which writes the
+client to `src/generated/prisma`. That folder is **not committed**; the root `package.json` lists `prisma` and
+`@prisma/engines` in `pnpm.onlyBuiltDependencies` so pnpm lets their install scripts run. Pin the three Prisma
+packages to the same exact version (7.10.1): the `latest` tag of `prisma` is currently an 8.0 release candidate.
+
+## Database (Prisma)
+
+- Schema: `prisma/schema.prisma` (models `Balance`, `CoinTransaction`, `Admin` mapped to the tables `balances`,
+  `transactions`, `admins`). Migrations: `prisma/migrations/` (initial: `0_init`). Prisma does not model `CHECK`
+  constraints, so they are written by hand in the migration SQL: keep them when adding migrations.
+- `pnpm db:migrate` = `prisma migrate deploy` (applies pending migrations, using `DATABASE_URL_UNPOOLED`, the direct
+  connection; the pooler is not safe for Migrate's advisory lock). `pnpm db:status` = `prisma migrate status`.
+- A database created **before** Prisma (tables already exist): baseline it instead of migrating:
+  `pnpm exec prisma migrate diff --from-config-datasource --to-schema prisma/schema.prisma --exit-code` must exit `0`,
+  check the `CHECK` constraints in `pg_constraint` (the diff cannot see them), then
+  `pnpm exec prisma migrate resolve --applied 0_init`.
+- Changing the schema: edit `schema.prisma`, `pnpm exec prisma migrate dev --create-only --name <name>`, review the
+  SQL (re-add any `CHECK`), then `pnpm db:migrate`.
+- The balance change (top-up/debit) is **one raw SQL statement** run with `$queryRaw`, not the ORM: it must update
+  the balance and append the ledger entry atomically, and Neon's HTTP mode has no transactions. It is the only raw
+  SQL in the API; `$queryRawUnsafe` and `$executeRawUnsafe` are forbidden (constitution 1.6.0). A losing duplicate
+  `Idempotency-Key` write surfaces as `PrismaClientKnownRequestError` with code `23505`, which the repository maps
+  to the original result.
 
 ## Running locally
 
@@ -62,16 +87,11 @@ ADMIN_EMAIL=voce@exemplo.com ADMIN_PASSWORD='...' BASE_URL=http://localhost:3000
 
 Limitações conhecidas, sem rodeios:
 
-1. **O Blob não é armazenamento privado.** Este SDK só grava com `access: "public"`; o registro do admin
-   (e-mail + hash scrypt com salt) fica numa URL pública de CDN. O hostname do store não é adivinhável e a
-   senha nunca é gravada em claro, mas quem obtiver essa URL pode tentar quebrar o hash offline. Uma senha
-   fraca cai rápido nesse cenário: use uma senha longa e única. Para guardar credenciais de verdade, o
-   caminho certo é um armazenamento privado (banco), o que é outra decisão de arquitetura.
+1. **Senha fraca continua sendo risco.** Os dados agora estão num banco privado (Neon), não em URL pública,
+   mas a senha do admin ainda deve ser longa e única: o hash só protege enquanto a senha não for adivinhável.
 2. **Sem limite de tentativas de login.** Não há rate limit nem bloqueio por tentativas em `/admin/login`
    (função serverless sem estado). A defesa atual é o custo do scrypt e a resposta idêntica para e-mail
    desconhecido e senha errada.
-3. **`/auth/token` aceita `ownerId` com `/`.** Isso pode fazer o prefixo de um dono colidir com o de outro
-   nas listagens do Blob; as rotas de admin validam o `ownerId`, mas a emissão de token de dono ainda não.
 
 ## Known, documented limitations
 
@@ -83,27 +103,11 @@ Limitações conhecidas, sem rodeios:
    id from requesting a token for that id directly. Closing that gap would require real login across
    the whole product, which is out of scope here. See `specs/007-monorepo-vercel-blob/spec.md`
    (Assumptions) for the full writeup.
-2. **Vercel Blob has no transactions.** Balance writes use an application-level optimistic-
-   concurrency check (read version, write, re-check before committing) — this reduces, but does not
-   eliminate, the race window between two near-simultaneous writes to the same balance. Accepted at
-   this project's demo scale; see `specs/007-monorepo-vercel-blob/research.md` (D5).
-3. **A tight burst of same-IP requests to the Blob CDN domain can trigger Vercel's own bot/abuse
-   challenge, not an application bug.** Confirmed by direct testing against a real store: a public
-   blob URL (`*.public.blob.vercel-storage.com`) occasionally returns a transient `403` for a few
-   hundred ms right after `put()` (the edge hasn't replicated the write yet — `blobStore.ts`'s
-   `fetchJson` retries a handful of times for exactly this case). Separately, and not fixable by
-   retrying, a *sustained burst* of many concurrent requests to the same pathname from one IP (e.g.
-   this repo's own smoke test's 50-concurrent-top-ups check, or a diagnostic hitting the balance URL
-   directly) can trip Vercel's edge security layer: the CDN responds with `403`, `Retry-After: 30`,
-   and `x-vercel-mitigated: challenge`, serving an HTML "Vercel Security Checkpoint" page instead of
-   the blob. No server-side retry can solve that page (it expects a browser), so once triggered the
-   request genuinely fails until the window passes. This was reproducible from this project's own
-   sandboxed test environment at concurrency as low as ~8; real end users spread across many
-   distinct IPs are far less likely to trigger it than a single script firing 50 requests from one
-   IP, but if you see `500 blob_read_failed` under real concurrent load, check the response headers
-   for `x-vercel-mitigated` before assuming a data bug — and note that every failure observed this
-   way was a clean, visible `500` (the request was rejected outright), never a silently wrong
-   balance (no lost update was ever observed in the requests that *did* succeed).
+2. **Concurrency is the database's job now.** Top-up and debit are each one atomic SQL statement that
+   updates the balance and appends the ledger entry together, under the row lock; a debit only applies when
+   `amount >= requested`. Verified: 50 concurrent top-ups end exactly at +50, and 50 concurrent debits
+   against a balance of 30 accept exactly 30, reject 20 with `402`, end at `0`, with 31 ledger entries.
+   The old Blob-era `409 concurrency_conflict` no longer exists.
 
 ## Verified during implementation (US1)
 
@@ -114,13 +118,32 @@ Limitações conhecidas, sem rodeios:
 ## Verifying
 
 ```sh
-AUTH_JWT_SECRET=<same as the server> BASE_URL=http://localhost:3000/api pnpm smoke-test
+AUTH_JWT_SECRET=<same as the server> BASE_URL=http://localhost:4001/api pnpm smoke-test
 ```
 
 Runs `scripts/smoke-test.mjs` against a running instance (`BASE_URL` defaults to
 `http://localhost:4001/api`, i.e. `pnpm dev:local`; point it at `vercel dev` for full parity).
 `AUTH_JWT_SECRET` is needed to mint an already-expired token for the expiry check. See
 `specs/007-monorepo-vercel-blob/quickstart.md` for the full list of scenarios it covers.
+
+### Full environment check (`verify:deploy`)
+
+One command proves an environment (local, preview or production — also the site's `/backend` origin):
+
+```sh
+BASE_URL=https://<host>/api AUTH_JWT_SECRET=<that environment's secret>   ADMIN_EMAIL=... ADMIN_PASSWORD=... [PROTECTION_BYPASS=<secret>] [DIRECT_PROBE_URLS=<url,url>]   pnpm verify:deploy [--repeat 10] [--skip-admin]
+```
+
+It runs the 16 checks of `specs/010-api-production-backend/contracts/verification-suite.md` (health, structured
+404, auth, isolation, admin login, 50 concurrent operations, balance == sum of the history, idempotency, direct-read
+denial, latency p95, OpenAPI + Swagger UI, admin owners pagination), prints one `✓`/`✗` per check, never prints tokens, secrets or hashes, and exits non-zero on
+any failure. `--repeat N` reruns the suite with fresh owners and stops at the first lost update.
+
+### Idempotency
+
+`POST /api/coins/topup` and `/debit` accept an optional `Idempotency-Key` header (1–128 characters). The same key
+with the same operation returns the original result without a new effect; with another amount or direction it
+returns `409 idempotency_key_conflict`; an invalid key returns `400 invalid_idempotency_key`.
 
 ## Deploying
 
@@ -132,7 +155,20 @@ vercel --prod    # promote to production (nft-marketplace-api-ochre.vercel.app)
 ```
 
 Required environment variables on the Vercel project (Project Settings -> Environment Variables):
-`BLOB_READ_WRITE_TOKEN`, `AUTH_JWT_SECRET`.
+`DATABASE_URL` and `DATABASE_URL_UNPOOLED` (both set by the Neon integration), `AUTH_JWT_SECRET`. Apply the
+schema once per database with `prisma migrate deploy` (see "Database (Prisma)").
+Use a separate Neon branch for Development, Preview and Production and a **different** `AUTH_JWT_SECRET` per
+environment; the Vercel build must show `prisma generate` running in `postinstall` (a `500` on every route,
+including `/health`, right after a deploy means the client was not generated).
+Order: migrate + seed the admin → `vercel deploy` → `pnpm verify:deploy` against the preview → `vercel deploy --prod`
+→ `pnpm verify:deploy` against production and against the site's `/backend`.
+
+Rollback: `vercel rollback` (or redeploy the previous deployment); the schema only ever gains columns/indexes, so the
+previous code keeps working against the migrated database.
+
+**Rotate the admin password.** While the API stored admins in Vercel Blob, the admin's password hash was readable
+by anyone who knew its public URL. Seed the production admin with a **new** password (`pnpm seed:admin`), never the
+one used back then.
 
 ### Framework preset (important)
 
