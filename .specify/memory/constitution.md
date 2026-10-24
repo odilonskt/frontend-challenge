@@ -1,6 +1,6 @@
 <!--
 Sync Impact Report
-- Version change: 1.1.0 → 1.2.0 → 1.2.1 → 1.3.0 → 1.4.0 → 1.5.0 → 1.6.0 → 1.7.0
+- Version change: 1.1.0 → 1.2.0 → 1.2.1 → 1.3.0 → 1.4.0 → 1.5.0 → 1.6.0 → 1.7.0 → 1.8.0
 - Modified principles: nenhum (nenhum princípio existente foi removido ou redefinido de forma
   incompatível; a mudança abaixo é uma segunda exceção aditiva, escopada a um workspace novo
   `apps/api` + `apps/web`, sem alterar `server/`, a exceção de 1.1.0, nem o restante de `src/`)
@@ -31,13 +31,22 @@ Sync Impact Report
   sessão do site e nunca em `localStorage`). Suporte e páginas editoriais continuam fora. Pedido
   explícito do usuário (plano de 2026-10-24: features 012–016). MINOR: expansão material de escopo, sem
   remover nem redefinir princípio
-- Modified sections: "Restrições Técnicas e de Escopo" (itens "Fora de escopo" e "Segurança"; novo item
-  "Escopo ampliado (1.7.0)")
+- 1.8.0: Suporte (FAQ e chamados: abrir, ver, responder) sai de "Fora de escopo". Favoritos, compras
+  confirmadas, ofertas, downloads, atividade e suporte passam a ter backend real em `apps/api`
+  (Postgres/Prisma, `requireAuth`; decisão de ofertas e resposta de chamados em rotas `/admin/*` com
+  `requireAdmin`), revogando o "sempre simulado no MSW" da 1.7.0 para esses recursos. Atividade é consulta
+  derivada, sem tabela de eventos. Limitação registrada: a API confia no registro de compra enviado pelo
+  web, porque pedidos e catálogo continuam no MSW. "Lista de interesse" é a página dos Favoritos. Pedido
+  explícito do usuário (plano de 2026-10-24). MINOR: expansão material de escopo e da exceção de
+  `apps/api`, sem remover nem redefinir princípio
+- Modified sections: "Restrições Técnicas e de Escopo" (itens "Fora de escopo", "Escopo ampliado (1.7.0)" e
+  "Segurança"; novo item "Escopo ampliado (1.8.0)"); "Exceção Pontual: Monorepo na Vercel..." (novo item
+  de domínios da conta e limitação de confiança)
 - Templates/commands: nenhum alterado (leem a constituição em tempo de execução)
 - Removed sections: nenhum
 - Follow-up TODOs: atualizar `docs/CHALLENGE.md` (linha 48 ainda lista atividade, ofertas e downloads
-  como fora da entrega); feito na primeira feature desta leva (012), pois este comando só altera a
-  constituição
+  como fora da entrega, e suporte continua listado como fora); este comando só altera a constituição,
+  então a edição fica para a primeira feature desta leva
 -->
 # NFT Marketplace Constitution
 
@@ -108,8 +117,10 @@ auditado com Lighthouse (`pnpm lighthouse`).
   efetivamente da solução.
 - Gerenciador de pacotes: pnpm. Linter: oxlint (`.oxlintrc.json` codifica as regras de fronteira).
 - Fora de escopo: integrações reais de blockchain, extensões de carteira e gateways de pagamento;
-  páginas editoriais e suporte. Ações fora do escopo MUST NOT aparentar sucesso funcional.
-- Escopo ampliado (1.7.0), sempre simulado no MSW (Princípio V), sem integração real nova:
+  páginas editoriais. Ações fora do escopo MUST NOT aparentar sucesso funcional.
+- Escopo ampliado (1.7.0), simulado no MSW (Princípio V), sem integração real nova. Para Atividade,
+  Ofertas e Arquivos baixados, o "simulado no MSW" é substituído pelo backend real de `apps/api` descrito
+  em "Escopo ampliado (1.8.0)"; as regras de comportamento de cada item continuam valendo:
   - **Atividade**: feed somente leitura do próprio usuário, derivado de dados que já existem (pedidos,
     ofertas, favoritos, moedas); MUST NOT inventar eventos que não aconteceram no cenário simulado.
   - **Ofertas**: o colecionador faz uma oferta de preço num NFT; o vendedor aceita ou recusa; cada oferta
@@ -121,9 +132,26 @@ auditado com Lighthouse (`pnpm lighthouse`).
   - **Tela do admin real das moedas** (`apps/api`, exceção 1.4.0): somente leitura, pelo caminho
     `/backend/admin/*`. O token de admin da API MUST NOT ser confundido com a sessão do site (papéis e
     sessões separados) e MUST NOT ser persistido em `localStorage`.
+- Escopo ampliado (1.8.0), com backend real em `apps/api` (exceção abaixo) acessado pelo web em `/backend`:
+  - **Lista de interesse**: é a página dos Favoritos (`/account/wishlist`); não existe um segundo modelo.
+    Os favoritos passam a ser guardados em `apps/api`, por dono, como `nftId`.
+  - **Compras confirmadas**: `apps/api` guarda um registro por pedido confirmado (snapshot imutável das
+    linhas), enviado pelo web e gravado de forma idempotente pelo id do pedido. Limitação assumida: pedidos
+    e catálogo continuam no MSW, então a API MUST NOT ser apresentada como verificadora do pedido; ela
+    confia no registro enviado pelo web, como a emissão do token já confia no id pedido. Documentar no
+    README de `apps/api` e na spec.
+  - **Arquivos baixados**: só a partir de compras confirmadas do próprio dono; o arquivo é simulado (sem
+    arquivo real no servidor).
+  - **Atividade**: MUST ser uma consulta derivada de dados existentes (compras, ofertas, favoritos,
+    moedas), sem tabela de eventos própria, para não inventar eventos.
+  - **Ofertas**: guardadas em `apps/api`, com status explícito e chave de idempotência por dono. A decisão
+    (aceitar ou recusar) é feita por rota `/admin/*` com `requireAdmin`; aceitar MUST NOT aparentar
+    liquidação real.
+  - **Suporte**: FAQ e chamados (abrir, ver e responder), guardados em `apps/api` por dono. A resposta do
+    atendimento é feita por rota `/admin/*` com `requireAdmin`. O dono MUST NOT ler chamado de outro dono.
 - Segurança: credenciais fictícias apenas (exceto o admin real de `apps/api`, regido pela exceção
   1.4.0); senhas MUST NOT ser armazenadas em claro; checkout, perfil, carteiras, favoritos, pedidos,
-  atividade, ofertas e arquivos baixados exigem autenticação.
+  atividade, ofertas, arquivos baixados e suporte exigem autenticação.
 - Recibos MUST reproduzir o snapshot do pedido, imutável a mudanças posteriores no catálogo.
 
 ## Exceção Pontual: Backend Real de Moedas da Plataforma (`server/`)
@@ -217,8 +245,16 @@ armazenamento.
   real ao produto — e essa limitação específica (emissão confia, uso subsequente não) MUST ficar
   documentada de forma explícita no README de `apps/api` e na spec da 007, nunca apresentada como
   proteção completa contra uso indevido de conta.
+- Domínios da conta (1.8.0): `apps/api` ganha os domínios `favorites`, `purchases`, `offers`, `activity`,
+  `downloads` e `support`, no mesmo Postgres/Prisma e com o mesmo padrão dos domínios existentes. As rotas
+  de dono ficam atrás de `requireAuth` e o `ownerId` MUST vir só do token verificado, nunca do corpo; as
+  rotas de decisão de ofertas e de resposta de chamados ficam em `/admin/*` com `requireAdmin`, e as
+  escritas de admin que isto cria são limitadas a essas duas (o ajuste de saldo por admin segue fora de
+  escopo). Valores em ETH MUST trafegar como string decimal. Mudanças de esquema MUST entrar por migração
+  do Prisma Migrate.
 - O Playwright/e2e existente MUST continuar rodando inteiramente contra os mocks do frontend; não é
-  apontado para `apps/api`. `apps/api` precisa de sua própria estratégia de verificação.
+  apontado para `apps/api` (para os domínios da conta, o web usa handlers MSW de `/backend`).
+  `apps/api` precisa de sua própria estratégia de verificação.
 - Qualquer expansão futura desta exceção exige nova emenda explícita a esta constituição.
 
 ## Fluxo de Desenvolvimento e Qualidade
@@ -241,4 +277,4 @@ expansão material; PATCH para esclarecimentos e correções de redação. Revis
 `/speckit-analyze` MUST verificar conformidade; regras de fronteira (Princípio I) são impostas
 automaticamente por `pnpm lint`. Orientação de uso diário: `docs/TEAMS.md` e `docs/CHALLENGE.md`.
 
-**Version**: 1.7.0 | **Ratified**: 2026-10-14 | **Last Amended**: 2026-10-24
+**Version**: 1.8.0 | **Ratified**: 2026-10-14 | **Last Amended**: 2026-10-24
