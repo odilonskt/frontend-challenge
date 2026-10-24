@@ -40,7 +40,10 @@ e2e/          Playwright, uma pasta por página
 | `pages/login` | Login | `/login` | auth, cart |
 | `pages/signup` | Cadastro | `/signup` | auth, cart |
 | `pages/profile` | Perfil do colecionador | `/account/profile` | profile, auth |
-| `pages/wallets` | Carteiras | `/account/wallets` | wallets |
+| `pages/wallets` | Carteiras | `/account/wallets` | wallets, ledger |
+| `pages/admin-coins-login` | Entrada do admin das moedas | `/admin/coins/login` | coins-admin |
+| `pages/admin-coins` | Moedas (donos de saldo) | `/admin/coins` | coins-admin |
+| `pages/admin-coins-owner` | Dono de saldo (saldo e extrato) | `/admin/coins/$ownerId` | coins-admin |
 | `pages/not-found` | 404 | qualquer rota inexistente | — |
 
 Anatomia de uma página:
@@ -65,6 +68,7 @@ src/pages/<página>/
 | `auth` | Sessão, cadastro, login, expiração |
 | `profile` | Perfil, avatar, senha |
 | `wallets` | Carteiras e conexão simulada |
+| `coins-admin` | Admin real das moedas (`apps/api`): sessão só em memória, lista de donos, saldo e extrato; somente leitura |
 
 ```
 src/domains/<domínio>/

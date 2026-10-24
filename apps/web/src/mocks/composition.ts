@@ -25,6 +25,8 @@ import { profileHandlers } from './contexts/profile/handlers'
 import { OrderRepository, OrderService, type OrderPolicy } from './contexts/orders/service'
 import { orderHandlers } from './contexts/orders/handlers'
 import { ledgerHandlers } from './contexts/ledger/handlers'
+import { coinsAdminHandlers } from './contexts/coins-admin/handlers'
+import { CoinsAdminService } from './contexts/coins-admin/service'
 import { LedgerService } from './contexts/ledger/service'
 import { DEFAULT_ORDER_SETTLE_MS, DEFAULT_SESSION_TTL_MS } from './scenarios/definitions'
 import { scenarioRuntime } from './scenarios/runtime'
@@ -56,6 +58,7 @@ const favorites = new FavoritesService(new FavoritesRepository(store), catalogRe
 const wallets = new WalletService(new WalletRepository(store), clock, () => scenarioRuntime.current.walletRejects === true)
 const profile = new ProfileService(users, clock)
 const ledger = new LedgerService()
+const coinsAdmin = new CoinsAdminService()
 
 let checkoutMutationApplied = false
 scenarioRuntime.subscribe(() => {
@@ -104,6 +107,14 @@ export const handlers = [
     ? ledgerHandlers(BACKEND, ledger, {
         unavailable: () => scenarioRuntime.current.ledgerUnavailable === true,
         loseFirstWriteResponse: () => scenarioRuntime.current.ledgerLoseFirstWriteResponse === true,
+      })
+    : []),
+  // Admin of the real coins service (specs/012-coins-admin): same switch, own credential and token.
+  ...(env.enableBackendMocks
+    ? coinsAdminHandlers(BACKEND, coinsAdmin, ledger, {
+        unavailable: () => scenarioRuntime.current.ledgerUnavailable === true,
+        sessionExpired: () => scenarioRuntime.current.coinsAdminSessionExpired === true,
+        latencyMs: () => scenarioRuntime.nextLatencyMs(),
       })
     : []),
   realtime.handler,

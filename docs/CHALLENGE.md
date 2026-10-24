@@ -45,7 +45,7 @@ As tecnologias devem participar efetivamente da solução. A ferramenta de build
 
 Implemente os frames desktop e mobile disponíveis. Perfil, carteiras e confirmação também devem funcionar em mobile, mesmo sem um frame específico.
 
-Páginas editoriais, suporte, atividade, ofertas e downloads não fazem parte da entrega. Links externos e ações auxiliares devem ter comportamento coerente; ações fora do escopo não devem aparentar sucesso funcional.
+Páginas editoriais e suporte não fazem parte da entrega. Atividade, ofertas e downloads entram na entrega, sempre simulados (constituição 1.7.0). Links externos e ações auxiliares devem ter comportamento coerente; ações fora do escopo não devem aparentar sucesso funcional.
 
 ### Catálogo e detalhe
 
