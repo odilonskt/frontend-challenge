@@ -52,6 +52,26 @@ packages to the same exact version (7.10.1): the `latest` tag of `prisma` is cur
   (`http://localhost:4001/api/health`). **Does not** exercise the Vercel rewrite/invocation model —
   never use it to validate parity with production.
 
+## Documentation (Swagger / OpenAPI)
+
+Interactive API docs and a machine-readable spec, both public (no token), under `/api` (feature
+`009-api-swagger-docs`):
+
+- `GET /api/docs` — **Swagger UI** (assets loaded from a pinned CDN, so nothing heavy is bundled
+  into the function). Use "Authorize" to paste a Bearer token and "Try it out" against the live
+  instance.
+- `GET /api/openapi.json` — the **OpenAPI 3.1** document.
+
+The document is **generated from the same Zod schemas that validate requests** (`src/openapi/`
+builds it via Zod v4's native `z.toJSONSchema`), so the docs cannot drift from the real validation.
+Request schemas live once in `src/domains/<domínio>/contracts.ts` and are imported by both the route
+(runtime validation) and the generator. No new runtime dependency is added — this stays within the
+`apps/api` stack allowed by the constitution. See `specs/009-api-swagger-docs/` for the full spec.
+
+> Scope note: the generated document currently covers the six core routes (`health`, `auth/token`,
+> `coins/*`). The `/api/admin/*` routes (below) are **not yet** in the OpenAPI document — documenting
+> them is a follow-up.
+
 ## Admin
 
 Administradores entram com e-mail e senha de verdade (`POST /api/admin/login`) e recebem um token com

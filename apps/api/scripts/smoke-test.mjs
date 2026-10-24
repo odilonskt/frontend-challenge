@@ -130,19 +130,24 @@ async function main() {
     }
   }
 
-  await Promise.all(Array.from({ length: CONCURRENT_COUNT }, () => topUpOne()))
-  {
+  try {
+    await Promise.all(Array.from({ length: CONCURRENT_COUNT }, () => topUpOne()))
     const { json } = await request("GET", "/coins/balance", { token: tokenC })
     json.amount === CONCURRENT_COUNT
       ? ok(`${CONCURRENT_COUNT} concurrent top-ups -> balance exactly ${CONCURRENT_COUNT} (SC-003)`)
       : fail(`expected ${CONCURRENT_COUNT}, got ${json.amount} — lost update(s) detected`)
+  } catch (err) {
+    // Record and continue instead of aborting the whole run, so later checks
+    // (transaction history, documentation) still report. With Postgres every top-up
+    // is atomic, so any non-200 here is a real failure, not a known limitation.
+    fail(`concurrency check could not complete: ${err.message}`)
   }
 
   // 9. Transaction history ordering — only the 2 accepted ops (credit 100, debit 40);
   // the rejected over-limit debit (step 5) MUST NOT have created an entry.
   {
     const { json } = await request("GET", "/coins/transactions", { token: tokenA })
-    json.transactions.length === 2 && json.transactions[0].direction === "debit"
+    Array.isArray(json?.transactions) && json.transactions.length === 2 && json.transactions[0].direction === "debit"
       ? ok("transaction history returned, most recent first, correct count")
       : fail(`unexpected transaction history: ${JSON.stringify(json)}`)
   }
