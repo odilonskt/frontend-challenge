@@ -1,7 +1,22 @@
 # Organização do código
 
-O projeto separa **páginas** (o que o usuário vê, uma pasta por tela) de **domínios** (regras de negócio
-compartilhadas entre telas). Cada time é dono de uma ou mais páginas e consome os domínios pela API pública.
+O repositório é um workspace **pnpm + Nx** (`pnpm-workspace.yaml`, `nx.json`):
+
+```
+apps/web/     SPA React (o frontend descrito abaixo) — todos os caminhos `src/...` deste documento
+              são relativos a apps/web/
+apps/api/     backend real em Express na Vercel, com Vercel Blob e auth por JWT
+              (specs/007-monorepo-vercel-blob, README próprio)
+server/       backend real de moedas da 006 (Express + SQLite), fora do workspace, intocado
+```
+
+Comandos na raiz: `pnpm dev` (web), `pnpm dev:api`, `pnpm dev:all` (web + api + server),
+`pnpm build` / `pnpm typecheck` / `pnpm lint` (todos os projetos via Nx), `pnpm test:e2e` (web).
+Para um projeto só: `nx run web:<alvo>` ou `nx run api:<alvo>`.
+
+Dentro de `apps/web`, o projeto separa **páginas** (o que o usuário vê, uma pasta por tela) de
+**domínios** (regras de negócio compartilhadas entre telas). Cada time é dono de uma ou mais páginas e
+consome os domínios pela API pública.
 
 ```
 src/
