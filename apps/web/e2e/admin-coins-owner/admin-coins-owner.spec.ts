@@ -136,14 +136,14 @@ test('the screen offers no action that changes data', async ({ page }) => {
   await openOwner(page, 'dono-e', [{ direction: 'credit', amount: 3 }])
   await expect(main(page).getByText('3 moedas', { exact: true })).toBeVisible()
   const names = await main(page).getByRole('button').evaluateAll((buttons) => buttons.map((b) => b.textContent?.trim()))
-  for (const name of names) expect(['Sair', 'Tentar de novo']).toContain(name)
+  for (const name of names) expect(['Sair', 'Sair do site', 'Tentar de novo']).toContain(name)
 })
 
 test('signing out closes the owner: going back shows no data', async ({ page }) => {
   await openOwner(page, 'dono-f', [{ direction: 'credit', amount: 9 }])
   await expect(main(page).getByText('9 moedas', { exact: true })).toBeVisible()
 
-  await main(page).getByRole('button', { name: 'Sair' }).click()
+  await main(page).getByRole('button', { name: 'Sair', exact: true }).click()
   await expect(page).toHaveURL(/\/admin\/coins\/login/)
   await page.goBack()
   await expect(page).toHaveURL(/\/admin\/coins\/login/)

@@ -41,6 +41,9 @@ e2e/          Playwright, uma pasta por página
 | `pages/signup` | Cadastro | `/signup` | auth, cart |
 | `pages/profile` | Perfil do colecionador | `/account/profile` | profile, auth |
 | `pages/wallets` | Carteiras | `/account/wallets` | wallets, ledger |
+| `pages/admin-dashboard` | Visão geral (totais e atalhos do admin) | `/admin` | admin |
+| `pages/admin-orders` | Pedidos de todos os usuários (lista, filtro, paginação) | `/admin/orders` | admin |
+| `pages/admin-order` | Detalhe de um pedido (somente leitura) | `/admin/orders/$orderId` | admin |
 | `pages/admin-coins-login` | Entrada do admin das moedas | `/admin/coins/login` | coins-admin |
 | `pages/admin-coins` | Moedas (donos de saldo) | `/admin/coins` | coins-admin |
 | `pages/admin-coins-owner` | Dono de saldo (saldo e extrato) | `/admin/coins/$ownerId` | coins-admin |
@@ -68,6 +71,7 @@ src/pages/<página>/
 | `auth` | Sessão, cadastro, login, expiração |
 | `profile` | Perfil, avatar, senha |
 | `wallets` | Carteiras e conexão simulada |
+| `admin` | Admin do marketplace (simulado, MSW): visão geral, pedidos de todos os usuários e produtos/usuários; leituras de pedido somente leitura |
 | `coins-admin` | Admin real das moedas (`apps/api`): sessão só em memória, lista de donos, saldo e extrato; somente leitura |
 
 ```
@@ -108,7 +112,11 @@ Fonte de verdade: `specs/001-design-system-standards` (`contracts/design-tokens.
 - **Fonte**: Space Mono em toda a interface. Escala: `title` 16/700, `body` 14/400, `action` 14/700, `caption` 12/400.
 - **Layout**: toda página usa `PageContainer` (`@/shared/ui/page-container`, máx. 1200 px, gutter 16/24 px).
 - **Navegação**: `Navbar` (`app/layout/Navbar.tsx`) e `Dock` (`app/layout/Dock.tsx`, só abaixo de 768 px) leem os mesmos
-  itens de `app/layout/nav-items.ts`. Destino sem rota fica desabilitado, nunca como link.
+  itens de `app/layout/nav-items.ts`. Destino sem rota fica desabilitado, nunca como link. Um item com `requiresRole`
+  (hoje "Administração", só para `role === 'admin'`) só aparece para esse papel; papel desconhecido nunca vê o item.
+- **Menus laterais**: `shared/ui/side-menu.tsx` (conta e admin) navega pelo **roteador** num clique simples: um `<a href>`
+  recarregaria a página e derrubaria o que só vive em memória (a sessão do admin das moedas). Ctrl/Cmd, botão do meio e
+  `target` seguem o comportamento normal do navegador. Na faixa rolável do celular o item atual é trazido para a vista.
 - **Componentes**: reutilize os de `src/shared/ui` (`Button`, `Input`, `Field`, `Label`, `Select`, `PasswordInput`,
   `SideMenu`, `NavLink`, `CountBadge`, `Avatar`, `Skeleton`...). Se uma página precisa de um componente igual a outra,
   ele sobe para `shared/ui`.

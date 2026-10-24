@@ -1,5 +1,5 @@
 import { useNavigate } from '@tanstack/react-router'
-import { useLogout } from '@/domains/auth'
+import { useLogout, useSession } from '@/domains/auth'
 import { useWallets, WalletForm } from '@/domains/wallets'
 import { AccountSideMenu } from '@/shared/ui/account-side-menu'
 import { PageContainer } from '@/shared/ui/page-container'
@@ -11,6 +11,7 @@ import { WalletsLoadError } from './components/WalletsLoadError'
 export function WalletsPage() {
   const wallets = useWallets()
   const logout = useLogout()
+  const session = useSession()
   const navigate = useNavigate()
   const primary = wallets.data?.find((w) => w.slot === 'primary')
   const secondary = wallets.data?.find((w) => w.slot === 'secondary')
@@ -28,7 +29,7 @@ export function WalletsPage() {
 
   return (
     <PageContainer className="grid gap-8 py-8 lg:grid-cols-[310px_1fr]">
-      <AccountSideMenu active="wallets" onLogout={handleLogout} />
+      <AccountSideMenu active="wallets" onLogout={handleLogout} showAdmin={session.data?.user.role === 'admin'} />
       <section aria-labelledby="wallets-title" className="flex flex-col gap-6">
         <div>
           <h1 id="wallets-title" className="text-title font-bold">

@@ -1,5 +1,6 @@
 import Decimal from 'decimal.js'
-import type { CollectorDetails, CreateOrderRequest, Order } from '@/domains/orders'
+import type { AdminOrderDetail, AdminOrdersPage, AdminOrderSummary } from '@/domains/admin'
+import type { CollectorDetails, CreateOrderRequest, Order, OrderStatus } from '@/domains/orders'
 import type { Network } from '@/domains/wallets'
 import type { Clock, Store } from '../../infra/store'
 import { DomainError, errors } from '../../http/errors'
@@ -41,6 +42,11 @@ export class OrderRepository {
   findByIdempotencyKey(userId: string, key: string): OrderRecord | null {
     const orderId = this.store.read((s) => s.idempotency[`${userId}:${key}`])
     return orderId ? this.find(orderId) : null
+  }
+
+  /** Every order of every user (copies). Only the admin reads use it; the owner reads go through `find`. */
+  all(): OrderRecord[] {
+    return this.store.read((s) => Object.values(s.orders).map((o) => structuredClone(o)))
   }
 
   pending(): OrderRecord[] {
@@ -169,6 +175,52 @@ export class OrderService {
     if (!record) throw errors.notFound('Pedido')
     if (record.userId !== userId) throw errors.forbidden()
     return toOrder(this.settleIfDue(record))
+  }
+
+  // --- Admin reads (specs/013-marketplace-admin). Read-only, and they never check the owner: the admin handlers
+  // guard them with `requireAdmin`. Pending orders whose payment is due are settled first, as `get` does, so the
+  // overview, the list and the detail always agree.
+
+  private settleDueOrders() {
+    this.orders.pending().forEach((order) => this.settleIfDue(order))
+  }
+
+  /** Orders of ALL users, newest first (ties: higher id first). `total`/`totalPages` respect the filter. */
+  listAll(filter: { status?: OrderStatus; page: number; pageSize: number }): AdminOrdersPage {
+    this.settleDueOrders()
+    const matching = this.orders
+      .all()
+      .filter((order) => filter.status === undefined || order.status === filter.status)
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt) || (a.id < b.id ? 1 : a.id > b.id ? -1 : 0))
+    const total = matching.length
+    const start = (filter.page - 1) * filter.pageSize
+    const items: AdminOrderSummary[] = matching.slice(start, start + filter.pageSize).map((order) => ({
+      id: order.id,
+      status: order.status,
+      createdAt: order.createdAt,
+      buyer: { userId: order.userId, fullName: order.collector.fullName, email: order.collector.email },
+      itemCount: order.lines.reduce((sum, line) => sum + line.quantity, 0),
+      total: order.total,
+      network: order.network,
+    }))
+    return { items, page: filter.page, pageSize: filter.pageSize, total, totalPages: Math.max(1, Math.ceil(total / filter.pageSize)) }
+  }
+
+  /** Any user's order, in the same shape as the buyer's receipt plus the owner's user id. */
+  getAny(orderId: string): AdminOrderDetail {
+    const record = this.orders.find(orderId)
+    if (!record) throw errors.notFound('Pedido')
+    return { ...toOrder(this.settleIfDue(record)), userId: record.userId }
+  }
+
+  countByStatus(): { total: number; pending: number; confirmed: number; declined: number } {
+    this.settleDueOrders()
+    const counts = { total: 0, pending: 0, confirmed: 0, declined: 0 }
+    for (const order of this.orders.all()) {
+      counts.total += 1
+      counts[order.status] += 1
+    }
+    return counts
   }
 
   /** Re-arms timers for pending orders after a page reload (timers don't survive it). */

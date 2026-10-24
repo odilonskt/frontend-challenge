@@ -1,7 +1,12 @@
-import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { keepPreviousData, queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { Nft } from '@/domains/catalog'
 import { api } from '@/shared/api/http'
+import { ADMIN_ORDERS_PAGE_SIZE } from '../model/contracts'
 import type {
+  AdminOrderDetail,
+  AdminOrdersPage,
+  AdminOrdersSearch,
+  AdminOverview,
   AdminUserDetail,
   AdminUserSummary,
   CreateListingRequest,
@@ -9,6 +14,9 @@ import type {
 } from '../model/contracts'
 
 const adminNftsKey = ['admin', 'nfts'] as const
+const adminOverviewKey = ['admin', 'overview'] as const
+const adminOrdersKey = (status?: string, page?: number) => ['admin', 'orders', status ?? 'all', page ?? 1] as const
+const adminOrderKey = (id: string) => ['admin', 'orders', 'detail', id] as const
 const adminUsersKey = (q?: string) => ['admin', 'users', q ?? ''] as const
 const adminUserKey = (id: string) => ['admin', 'users', 'detail', id] as const
 
@@ -80,4 +88,46 @@ export function useReactivateUser() {
       queryClient.setQueryData(adminUserKey(user.id), user)
     },
   })
+}
+
+/**
+ * Totals of the admin home (products, users, orders by status). `staleTime: 0`: they are computed when the screen
+ * opens, never served from an earlier visit (specs/013-marketplace-admin, Assumptions).
+ */
+export function useAdminOverview() {
+  return useQuery(
+    queryOptions({
+      queryKey: adminOverviewKey,
+      queryFn: () => api.get<AdminOverview>('/admin/overview'),
+      staleTime: 0,
+    }),
+  )
+}
+
+/**
+ * One page of every user's orders, optionally filtered by status. The previous page stays on screen while the next
+ * one loads. Only transient failures are retried (the client-wide policy).
+ */
+export function useAdminOrders({ status, page }: AdminOrdersSearch) {
+  return useQuery(
+    queryOptions({
+      queryKey: adminOrdersKey(status, page),
+      queryFn: ({ signal }) =>
+        api.get<AdminOrdersPage>('/admin/orders', {
+          params: { status, page: page ?? 1, pageSize: ADMIN_ORDERS_PAGE_SIZE },
+          signal,
+        }),
+      placeholderData: keepPreviousData,
+    }),
+  )
+}
+
+/** Any user's order, in the shape of the buyer's receipt plus the owner's user id. */
+export function useAdminOrder(orderId: string) {
+  return useQuery(
+    queryOptions({
+      queryKey: adminOrderKey(orderId),
+      queryFn: ({ signal }) => api.get<AdminOrderDetail>(`/admin/orders/${encodeURIComponent(orderId)}`, { signal }),
+    }),
+  )
 }

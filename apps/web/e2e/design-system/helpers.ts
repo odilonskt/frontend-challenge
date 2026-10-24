@@ -70,24 +70,38 @@ export async function settleAllOrders(page: Page) {
 /**
  * Creates a wallet, a cart item and an order for the signed-in user, entirely through the mocked
  * API — used by tests that only care about the order-confirmation page, not the checkout form.
- * Returns the created order id.
+ * Returns the created order id. The edition defaults to `nft_001`/`nft_001_standard`; tests that create many orders
+ * pass distinct editions (see `pickAvailableEditions`): one edition only has 1 to 25 units and every pending or
+ * confirmed order takes one.
  */
-export async function createOrderViaApi(page: Page): Promise<string> {
+export interface OrderEdition {
+  nftId: string
+  editionId: string
+}
+
+export async function createOrderViaApi(
+  page: Page,
+  edition: OrderEdition = { nftId: 'nft_001', editionId: 'nft_001_standard' },
+): Promise<string> {
   const token = await page.evaluate((key) => localStorage.getItem(key), SESSION_KEY)
-  return page.evaluate(async (authToken) => {
+  return page.evaluate(async ([authToken, chosen]) => {
     const headers = { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` }
     await fetch('/api/cart/items', {
       method: 'POST',
       headers,
-      body: JSON.stringify({ nftId: 'nft_001', editionId: 'nft_001_standard', quantity: 1 }),
+      body: JSON.stringify({ nftId: chosen.nftId, editionId: chosen.editionId, quantity: 1 }),
     })
-    const wallet = await (
-      await fetch('/api/wallets', {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({ slot: 'primary', label: 'Carteira de teste', provider: 'metamask', address: `0x${'1'.repeat(40)}`, networks: ['ethereum'] }),
-      })
-    ).json()
+    // The primary wallet is created once; a second order of the same user reuses it.
+    const existing = (await (await fetch('/api/wallets', { headers })).json()) as { id: string; slot: string }[]
+    const wallet =
+      existing.find((candidate) => candidate.slot === 'primary') ??
+      (await (
+        await fetch('/api/wallets', {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({ slot: 'primary', label: 'Carteira de teste', provider: 'metamask', address: `0x${'1'.repeat(40)}`, networks: ['ethereum'] }),
+        })
+      ).json())
     const quote = await (await fetch('/api/cart/quote?network=ethereum', { headers })).json()
     const order = await (
       await fetch('/api/orders', {
@@ -101,8 +115,68 @@ export async function createOrderViaApi(page: Page): Promise<string> {
         }),
       })
     ).json()
+    // The cart keeps its items until the order is confirmed: empty it, or the next order of this user would carry them too.
+    const cart = (await (await fetch('/api/cart', { headers })).json()) as { items: { id: string }[] }
+    for (const item of cart.items) await fetch(`/api/cart/items/${item.id}`, { method: 'DELETE', headers })
     return order.id as string
-  }, token)
+  }, [token, edition] as const)
+}
+
+/**
+ * Picks `count` DISTINCT editions that can still be bought (`status: 'available'`, at least one unit), reading the
+ * public catalog through the mocked API. Throws if the catalog does not have enough.
+ */
+export async function pickAvailableEditions(page: Page, count: number): Promise<OrderEdition[]> {
+  const editions = await page.evaluate(async () => {
+    const found: { nftId: string; editionId: string }[] = []
+    for (let pageNumber = 1; pageNumber <= 20; pageNumber += 1) {
+      const response = await fetch(`/api/nfts?availability=available&pageSize=48&page=${pageNumber}`)
+      const listing = (await response.json()) as { items: { id: string }[]; totalPages: number }
+      for (const summary of listing.items) {
+        const detail = (await (await fetch(`/api/nfts/${summary.id}`)).json()) as {
+          editions: { id: string; status: string; available: number }[]
+        }
+        for (const edition of detail.editions) {
+          if (edition.status === 'available' && edition.available >= 1) found.push({ nftId: summary.id, editionId: edition.id })
+        }
+      }
+      if (pageNumber >= listing.totalPages) break
+    }
+    return found
+  })
+  if (editions.length < count) throw new Error(`Only ${editions.length} purchasable editions in the catalog; ${count} needed.`)
+  return editions.slice(0, count)
+}
+
+export type SeededStatus = 'confirmed' | 'pending' | 'declined'
+
+// Pending orders must STAY pending while a test runs: the default 3 s settlement would turn them into confirmed ones.
+const SEED_SCENARIO: Record<SeededStatus, string> = { confirmed: 'fast', pending: 'payment-slow', declined: 'payment-declined' }
+
+/**
+ * Signs up a NEW buyer, gives them one order per edition and leaves them signed in. The orders end up `confirmed` or
+ * `declined` at once, or stay `pending`. `at` freezes the clock first, so the orders get a known creation time.
+ * Returns the order ids, in creation order.
+ */
+export async function seedBuyerOrders(page: Page, status: SeededStatus, editions: OrderEdition[], at?: Date): Promise<string[]> {
+  await signIn(page)
+  await selectScenario(page, SEED_SCENARIO[status])
+  if (at) await page.clock.setFixedTime(at)
+  const ids: string[] = []
+  for (const edition of editions) ids.push(await createOrderViaApi(page, edition))
+  if (status !== 'pending') await settleAllOrders(page)
+  return ids
+}
+
+/** GET on the mocked API as the signed-in user (an administrator, for the `/admin/*` paths). */
+export async function apiGet<T>(page: Page, path: string): Promise<T> {
+  return page.evaluate(
+    async ([url, key]) => {
+      const response = await fetch(url, { headers: { Authorization: `Bearer ${localStorage.getItem(key)}` } })
+      return (await response.json()) as unknown
+    },
+    [`/api${path}`, SESSION_KEY] as const,
+  ) as Promise<T>
 }
 
 /** Adds an item to the signed-in user's cart through the mocked API, like clicking "add to cart" would. */
