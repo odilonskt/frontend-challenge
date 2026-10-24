@@ -1,4 +1,5 @@
 import { Link } from '@tanstack/react-router'
+import { useAdminLogout } from '@/domains/admin'
 import {
   OWNER_TRANSACTIONS_SHOWN,
   SessionBar,
@@ -25,12 +26,13 @@ function BackToList() {
 /** Balance and the most recent operations of one owner, read-only. */
 export function AdminCoinsOwnerPage({ ownerId }: { ownerId: string }) {
   useCoinsAdminSessionRedirect()
+  const logout = useAdminLogout()
   const validId = ownerIdSchema.safeParse(ownerId).success
   const detail = useOwnerDetail(ownerId)
 
   return (
     <PageContainer className="grid gap-8 py-8 lg:grid-cols-[310px_1fr]">
-      <AdminSideMenu active="coins" />
+      <AdminSideMenu active="coins" onLogout={logout} />
       <section aria-labelledby="admin-coins-owner-title" className="flex min-w-0 flex-col gap-6">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="min-w-0">

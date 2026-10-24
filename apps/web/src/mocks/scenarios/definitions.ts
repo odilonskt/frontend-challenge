@@ -80,6 +80,7 @@ export const SCENARIOS: ScenarioDefinition[] = [
   { id: 'price-change-at-checkout', label: 'Preço muda no checkout', description: 'O preço do primeiro item sobe 10% no envio do pedido.', latency: DEFAULT_LATENCY, checkoutMutation: 'price_change' },
   { id: 'sold-out-at-checkout', label: 'Edição esgota no checkout', description: 'A edição do primeiro item esgota no envio do pedido.', latency: DEFAULT_LATENCY, checkoutMutation: 'sold_out' },
   { id: 'order-timeout', label: 'Timeout ao criar pedido', description: 'O pedido é criado, mas a resposta excede o timeout do cliente.', latency: DEFAULT_LATENCY, orderResponseDelayMs: 12_000 },
+  { id: 'payment-slow', label: 'Pagamento demorado', description: 'A liquidação do pedido leva 1 hora (pedidos ficam pendentes; testes determinísticos).', latency: { kind: 'range', minMs: 0, maxMs: 0 }, orderSettleMs: 3_600_000 },
   { id: 'payment-declined', label: 'Pagamento recusado', description: 'A liquidação do pedido é recusada.', latency: DEFAULT_LATENCY, paymentOutcome: 'declined' },
   { id: 'coins-unavailable', label: 'Moedas indisponíveis', description: 'O serviço de moedas (/backend) responde 503.', latency: DEFAULT_LATENCY, ledgerUnavailable: true },
   { id: 'coins-response-lost', label: 'Resposta de moedas perdida', description: 'A primeira recarga/débito é aplicada, mas a resposta volta como 503.', latency: DEFAULT_LATENCY, ledgerLoseFirstWriteResponse: true },

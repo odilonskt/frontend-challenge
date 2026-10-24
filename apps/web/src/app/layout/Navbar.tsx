@@ -3,13 +3,14 @@ import { CartIcon, LoginIcon, ProfileIcon, SearchIcon, iconProps } from '@/share
 import { CountBadge } from '@/shared/ui/count-badge'
 import { NavLink } from '@/shared/ui/nav-link'
 import { Button } from '@/shared/ui/button'
-import { navbarItems } from './nav-items'
+import type { UserRole } from '@/domains/auth'
+import { navbarItems, visibleFor } from './nav-items'
 
 export interface NavbarProps {
   /** Number of units in the cart, shown as a badge. Omit/0 hides the badge. */
   cartCount?: number
   /** Signed-in collector, or null for a visitor. */
-  user?: { name: string; avatarUrl: string | null } | null
+  user?: { name: string; avatarUrl: string | null; role: UserRole } | null
 }
 
 /**
@@ -18,6 +19,9 @@ export interface NavbarProps {
  * Below `md` only logo + essential actions stay here; the main destinations move to the Dock.
  */
 export function Navbar({ cartCount = 0, user = null }: NavbarProps) {
+  const items = visibleFor(navbarItems, user?.role)
+  // A fifth destination (administrators) no longer fits at `md` with the wide gap: tighten it until `lg`.
+  const gap = items.length > navbarItems.filter((item) => !item.requiresRole).length ? 'gap-6 lg:gap-10' : 'gap-10'
   return (
     <header className="sticky top-0 z-40 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
       <div className="mx-auto flex h-16 w-full max-w-[1200px] items-center gap-4 px-4 md:px-6">
@@ -29,8 +33,8 @@ export function Navbar({ cartCount = 0, user = null }: NavbarProps) {
           KURIO
         </Link>
 
-        <nav aria-label="Principal" className="mx-auto hidden items-center gap-10 md:flex">
-          {navbarItems.map((item) => (
+        <nav aria-label="Principal" className={`mx-auto hidden items-center ${gap} md:flex`}>
+          {items.map((item) => (
             <NavLink key={item.id} to={item.enabled ? item.to : null}>
               {item.label}
             </NavLink>

@@ -1,5 +1,5 @@
 import { Link, useNavigate } from '@tanstack/react-router'
-import { useLogout } from '@/domains/auth'
+import { useLogout, useSession } from '@/domains/auth'
 import { useProfile } from '@/domains/profile'
 import { isApiError } from '@/shared/api/http'
 import { AccountSideMenu } from '@/shared/ui/account-side-menu'
@@ -24,6 +24,7 @@ export function ProfilePage() {
   const profile = useProfile()
   const unauthenticated = profile.isError && isApiError(profile.error) && profile.error.isAuthError
   const logout = useLogout()
+  const session = useSession()
   const navigate = useNavigate()
 
   async function handleLogout() {
@@ -37,7 +38,7 @@ export function ProfilePage() {
 
   return (
     <PageContainer className="grid gap-8 py-8 lg:grid-cols-[310px_1fr]">
-      <AccountSideMenu active="profile" onLogout={handleLogout} />
+      <AccountSideMenu active="profile" onLogout={handleLogout} showAdmin={session.data?.user.role === 'admin'} />
       <section aria-labelledby="profile-title">
         <h1 id="profile-title" className="mb-8 text-title font-bold">
           Perfil do colecionador

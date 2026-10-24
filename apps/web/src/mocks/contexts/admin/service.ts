@@ -1,4 +1,4 @@
-import type { AdminUserDetail, AdminUserSummary, CreateListingRequest, UpdateEditionRequest } from '@/domains/admin'
+import type { AdminOverview, AdminUserDetail, AdminUserSummary, CreateListingRequest, UpdateEditionRequest } from '@/domains/admin'
 import type { Nft } from '@/domains/catalog'
 import { errors } from '../../http/errors'
 import { randomId } from '../../infra/random'
@@ -28,6 +28,19 @@ export class AdminService {
 
   listNfts() {
     return this.catalogRepository.allIncludingDelisted()
+  }
+
+  /**
+   * The marketplace totals the admin home shows. Products are the NFTs on the public storefront (not delisted);
+   * the order counts come from the order service, which owns them (`counts`).
+   */
+  overview(counts: AdminOverview['orders']): AdminOverview {
+    const users = this.users.all()
+    return {
+      products: { total: this.catalogRepository.all().length },
+      users: { total: users.length, suspended: users.filter((user) => user.status === 'suspended').length },
+      orders: counts,
+    }
   }
 
   createListing(input: CreateListingRequest): Nft {

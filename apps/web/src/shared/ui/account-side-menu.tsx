@@ -3,6 +3,7 @@ import {
   DownloadIcon,
   HeartIcon,
   LogoutIcon,
+  MarketIcon,
   OffersIcon,
   ProfileIcon,
   SupportIcon,
@@ -22,9 +23,18 @@ const UNAVAILABLE: { label: string; icon: IconComponent }[] = [
 
 /**
  * Account navigation shared by every `/account/*` page (Perfil, Carteiras). Purely presentational —
- * the active item and the logout action are injected by the caller, same pattern as `Navbar`.
+ * the active item, the logout action and whether to offer "Administração" (administrators only) are injected by
+ * the caller, same pattern as `Navbar`.
  */
-export function AccountSideMenu({ active, onLogout }: { active: 'profile' | 'wallets'; onLogout: () => void }) {
+export function AccountSideMenu({
+  active,
+  onLogout,
+  showAdmin = false,
+}: {
+  active: 'profile' | 'wallets'
+  onLogout: () => void
+  showAdmin?: boolean
+}) {
   return (
     <SideMenu title="Meu perfil" aria-label="Minha conta">
       <SideMenuItem icon={ProfileIcon} href="/account/profile" active={active === 'profile'}>
@@ -33,6 +43,11 @@ export function AccountSideMenu({ active, onLogout }: { active: 'profile' | 'wal
       <SideMenuItem icon={WalletIcon} href="/account/wallets" active={active === 'wallets'}>
         Carteiras
       </SideMenuItem>
+      {showAdmin && (
+        <SideMenuItem icon={MarketIcon} href="/admin">
+          Administração
+        </SideMenuItem>
+      )}
       {UNAVAILABLE.map(({ label, icon }) => (
         <SideMenuItem key={label} icon={icon} disabled title="Em breve">
           {label}
