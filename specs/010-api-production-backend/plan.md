@@ -31,7 +31,7 @@ desenvolvimento local com Postgres em Docker (paridade de SQL). Migrações como
 contra o Postgres local; e2e do `apps/web` inalterado (roda contra mocks).
 
 **Target Platform**: Vercel Serverless Functions (Node), projeto `nft-marketplace-api`, domínio
-`nft-marketplace-api-teal.vercel.app`.
+`nft-marketplace-api-ochre.vercel.app`.
 
 **Project Type**: web-service dentro do monorepo pnpm+Nx (alvo: `apps/api`).
 

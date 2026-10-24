@@ -68,7 +68,7 @@ de framework do projeto sobrescreveu o `vercel.json` (ver `apps/api/README.md`, 
 
 ```sh
 vercel deploy --prod        # ou: vercel promote <url-do-preview>
-BASE_URL=https://nft-marketplace-api-teal.vercel.app/api AUTH_JWT_SECRET=<producao> pnpm verify:deploy
+BASE_URL=https://nft-marketplace-api-ochre.vercel.app/api AUTH_JWT_SECRET=<producao> pnpm verify:deploy
 ```
 
 Esperado: 14 de 14 checagens; p95 ≤ 2 s (SC-006).

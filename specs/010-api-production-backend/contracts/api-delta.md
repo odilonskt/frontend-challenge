@@ -44,5 +44,5 @@ isolamento por dono, `role: "admin"` e login indistinguível permanecem como est
 
 ## Rewrite do site (inalterado)
 
-`apps/web/vercel.json`: `/backend/:path*` → `https://nft-marketplace-api-teal.vercel.app/api/:path*`. Se o
+`apps/web/vercel.json`: `/backend/:path*` → `https://nft-marketplace-api-ochre.vercel.app/api/:path*`. Se o
 domínio da API mudar, editar e republicar o site.

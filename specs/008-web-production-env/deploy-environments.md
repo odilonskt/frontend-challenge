@@ -9,7 +9,7 @@ Vercel por aplicação** (D1), sem `vercel.json` de serviços na raiz.
 | Projeto | Pasta | Vercel | URL | Estado |
 |---|---|---|---|---|
 | Front-end | `apps/web` | projeto `nft-marketplace-web` (preset Vite, estático) | `*.vercel.app` | a criar (esta feature) |
-| API | `apps/api` | projeto `nft-marketplace-api` (função Express em `api/index.ts`) | `https://nft-marketplace-api-teal.vercel.app` | publicado, `/api/*` ainda `404` (007 T022/T023) |
+| API | `apps/api` | projeto `nft-marketplace-api` (função Express em `api/index.ts`) | `https://nft-marketplace-api-ochre.vercel.app` | publicado, `/api/*` ainda `404` (007 T022/T023) |
 | Moedas (006) | `server/` | **não implantável** (SQLite local) | n/a | fora do deploy; moedas ocultas em produção |
 
 Ligação: navegador → `web` (`/backend/*` rewrite) → `api` (`/api/*`). O `web` nunca chama a API por URL

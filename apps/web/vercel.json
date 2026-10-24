@@ -4,7 +4,7 @@
   "outputDirectory": "dist",
   "framework": "vite",
   "rewrites": [
-    { "source": "/backend/:path*", "destination": "https://nft-marketplace-api-teal.vercel.app/api/:path*" },
+    { "source": "/backend/:path*", "destination": "https://nft-marketplace-api-ochre.vercel.app/api/:path*" },
     { "source": "/((?!assets/).*)", "destination": "/index.html" }
   ],
   "headers": [

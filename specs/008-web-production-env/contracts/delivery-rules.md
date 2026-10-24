@@ -16,7 +16,7 @@ Por isso `/backend/:path*` vem **antes** do fallback da SPA.
 
 | Ordem | Origem | Destino | Observação |
 |---|---|---|---|
-| 1 | `/backend/:path*` | `https://nft-marketplace-api-teal.vercel.app/api/:path*` | Mesma origem para o navegador; `Authorization` é repassado. Destino fixo (D4). |
+| 1 | `/backend/:path*` | `https://nft-marketplace-api-ochre.vercel.app/api/:path*` | Mesma origem para o navegador; `Authorization` é repassado. Destino fixo (D4). |
 | 2 | `/((?!assets/).*)` | `/index.html` | Fallback da SPA (FR-003). Só chega aqui o que não é arquivo estático nem `/backend/*`. Exclui `/assets/` de propósito: um asset ausente tem de ser `404`, não um `index.html` com `200`. |
 
 Contrato de comportamento:
