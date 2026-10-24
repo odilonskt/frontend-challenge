@@ -31,7 +31,8 @@
 
 ## Notes
 
-- Três decisões de produto ficaram com um padrão adotado e listadas em "Assumptions → A confirmar em `/speckit-clarify`"
-  (quem decide as ofertas, o que acontece depois de uma oferta aceita, registro de downloads). Nenhuma bloqueia o plano.
+- As três decisões de produto deixadas com padrão adotado (quem decide as ofertas, o que acontece depois de uma oferta
+  aceita, registro de downloads) foram resolvidas em `/speckit-clarify` (2026-10-24), junto com duas novas (uma oferta
+  pendente por usuário e NFT; ofertas não expiram). Ver "Clarifications" na spec.
 - O contexto no topo da spec cita o serviço real e a constituição 1.8.0 como fatos do repositório (como nas specs 011 e
   012); os requisitos e critérios de sucesso não citam tecnologia.

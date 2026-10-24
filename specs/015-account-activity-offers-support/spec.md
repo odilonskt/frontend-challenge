@@ -22,6 +22,21 @@ Fatos verificados no repositório (2026-10-24), para situar quem lê:
 5. A feature 013 (administração do marketplace, em andamento em outra branch) cuida de pedidos no admin e do menu do
    admin; esta feature **não** muda isso. A 014 está reservada ao perfil do usuário.
 
+## Clarifications
+
+### Session 2026-10-24
+
+- Q: Quem decide se uma oferta é aceita ou recusada? → A: Um administrador decide, pela área de administração (como
+  vendedor de demonstração); não há regra automática nem decisão pelo criador do NFT.
+- Q: Depois que uma oferta é aceita, o colecionador pode comprar pelo valor da oferta? → A: Não. A oferta aceita só muda
+  de estado para "Aceita"; não há botão de compra, pedido nem débito criados por ela (FR-014).
+- Q: O mesmo usuário pode ter mais de uma oferta pendente pelo mesmo NFT? → A: Não. Só uma oferta pendente por usuário e
+  NFT; uma nova só depois de cancelar ou de a anterior ser decidida (FR-012).
+- Q: Uma oferta pendente expira sozinha depois de algum tempo? → A: Não. Fica pendente até o administrador decidir ou o
+  usuário cancelar; não existe estado "Expirada" (FR-011).
+- Q: Ao baixar o mesmo arquivo de novo, a tela guarda cada download ou só o último? → A: Guarda cada download (um
+  registro por download); a tela mostra o último download e quantas vezes foi baixado (FR-009).
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Lista de interesse (Priority: P1)
@@ -66,7 +81,8 @@ ver a data do download; com outra conta, confirmar que a lista está vazia.
 1. **Given** um pedido confirmado com dois NFTs, **When** o usuário abre "Arquivos baixados", **Then** vê um arquivo para
    cada NFT comprado, com o nome do NFT, o número do pedido e o estado "ainda não baixado".
 2. **Given** um arquivo disponível, **When** o usuário o baixa, **Then** o navegador recebe o arquivo e a lista passa a
-   mostrar a data e a hora do download.
+   mostrar a data e a hora do último download e "baixado 1 vez"; ao baixar de novo, a contagem sobe para 2 e a data
+   passa a ser a do novo download.
 3. **Given** um pedido pendente ou recusado, **When** o usuário abre a tela, **Then** nenhum arquivo daquele pedido
    aparece.
 4. **Given** um usuário que nunca comprou, **When** abre a tela, **Then** vê um estado vazio explicando que os arquivos
@@ -99,8 +115,11 @@ os NFTs (US1/US2).
    "Aceita" ou "Recusada" na próxima vez que abre ou atualiza a tela, sem que isso apareça como compra concluída.
 5. **Given** um envio repetido por duplo clique ou nova tentativa de rede, **When** os dois envios chegam, **Then**
    existe uma única oferta.
-6. **Given** um usuário sem ofertas, **When** abre "Ofertas", **Then** vê um estado vazio com o caminho para o Mercado.
-7. **Given** a lista de ofertas, **When** o usuário filtra por estado, **Then** vê só as ofertas daquele estado, e o filtro
+6. **Given** uma oferta pendente do usuário por um NFT, **When** ele tenta fazer outra oferta pelo mesmo NFT, **Then**
+   vê a mensagem de que já existe uma oferta pendente (com o caminho para cancelá-la) e nada é criado; depois de
+   cancelar ou de a oferta ser decidida, pode fazer uma nova.
+7. **Given** um usuário sem ofertas, **When** abre "Ofertas", **Then** vê um estado vazio com o caminho para o Mercado.
+8. **Given** a lista de ofertas, **When** o usuário filtra por estado, **Then** vê só as ofertas daquele estado, e o filtro
    fica no endereço da página.
 
 ---
@@ -226,14 +245,17 @@ administrador e ver o acesso negado.
   já foi baixado e quando, e permitir baixar; pedidos pendentes ou recusados MUST NOT gerar arquivos.
 - **FR-008**: O arquivo entregue MUST ser identificado como material de demonstração (não há arquivo real de NFT neste
   sistema) e MUST conter ao menos o nome do NFT, o pedido e a data da compra.
-- **FR-009**: Cada download MUST ser registrado com data e hora; baixar de novo MUST ser permitido e atualizar o "último
-  download".
+- **FR-009**: Cada download MUST ser registrado como um registro próprio, com data e hora; baixar de novo MUST ser
+  permitido e gerar um novo registro. A tela MUST mostrar, por arquivo, a data e a hora do último download e quantas
+  vezes foi baixado.
 - **FR-010**: O usuário MUST poder fazer uma oferta de preço por um NFT do catálogo, informando um valor positivo dentro
   das casas decimais da moeda; valores inválidos MUST ser rejeitados com mensagem no campo.
 - **FR-011**: Cada oferta MUST ter estado explícito entre Pendente, Aceita, Recusada e Cancelada; só uma oferta pendente
-  pode mudar de estado, e MUST mudar uma única vez.
+  pode mudar de estado, e MUST mudar uma única vez. Uma oferta pendente MUST NOT expirar sozinha: fica pendente até o
+  administrador decidir ou o usuário cancelar.
 - **FR-012**: O envio de uma oferta MUST ser seguro contra repetição (duplo clique, nova tentativa): o mesmo envio nunca
-  cria duas ofertas.
+  cria duas ofertas. Além disso, um usuário MUST ter no máximo uma oferta pendente por NFT: uma nova oferta pelo mesmo
+  NFT é recusada com mensagem clara enquanto houver uma pendente.
 - **FR-013**: O usuário MUST poder cancelar uma oferta pendente e listar as próprias ofertas, filtrando por estado, com o
   filtro e a página no endereço.
 - **FR-014**: Aceitar uma oferta MUST NOT aparentar compra ou liquidação: nenhuma tela diz que o NFT foi comprado, e nenhum
@@ -270,7 +292,8 @@ administrador e ver o acesso negado.
   número do pedido como identidade única.
 - **Arquivo de NFT**: o material entregue por NFT de uma compra confirmada; tem nome, pedido de origem e o histórico de
   downloads.
-- **Download**: o registro de que o usuário baixou um arquivo, com data e hora.
+- **Download**: o registro de que o usuário baixou um arquivo, com data e hora; cada vez que baixa gera um registro novo,
+  e a tela resume por arquivo o último download e a contagem.
 - **Oferta**: proposta de preço de um usuário por um NFT; tem valor (decimal em texto), retrato do NFT na hora da oferta,
   estado (Pendente, Aceita, Recusada, Cancelada), data de criação e data da decisão.
 - **Chamado**: pedido de ajuda de um usuário; tem assunto, categoria, estado (Aberto, Respondido, Encerrado) e uma
@@ -290,7 +313,7 @@ administrador e ver o acesso negado.
 - **SC-003**: Em 100% dos pedidos confirmados, cada NFT comprado vira exatamente um arquivo disponível, e em 100% dos
   pedidos pendentes ou recusados nenhum arquivo aparece.
 - **SC-004**: Em 100% das tentativas, repetir o mesmo envio de oferta (duplo clique ou nova tentativa) resulta em uma
-  única oferta.
+  única oferta, e 0 usuários terminam com duas ofertas pendentes pelo mesmo NFT.
 - **SC-005**: 0 telas mostram uma oferta aceita como compra concluída, e 0 pedidos ou débitos nascem de uma oferta aceita.
 - **SC-006**: Em 100% das tentativas de um usuário ler dado de outro (ofertas, chamados, arquivos, favoritos ou atividade)
   o resultado é "não encontrado" ou acesso negado, sem nenhum dado exposto; 0 ações de administrador funcionam sem o papel.
@@ -312,11 +335,6 @@ administrador e ver o acesso negado.
 - O catálogo continua na simulação do site; o serviço real guarda só o identificador do NFT e um retrato (nome, imagem,
   preço) quando precisa preservar o que existia na hora (compra e oferta).
 - Os arquivos baixados são de demonstração, gerados na hora do download; não há armazenamento de arquivos de NFT.
-- **A confirmar em `/speckit-clarify`** (cada um tem um padrão adotado até lá):
-  - Quem decide as ofertas: padrão adotado é **o administrador** (US6), como vendedor de demonstração, e não uma regra
-    automática.
-  - O que acontece depois de uma oferta aceita: padrão adotado é **só mudar o estado** (FR-014), sem levar ao checkout.
-  - Downloads: padrão adotado é **um registro por download**, com o "último download" mostrado por arquivo (FR-009).
 - Administradores usam o acesso de administrador que já existe no serviço real, separado da sessão do site (como na
   feature 012); as telas de administração desta feature entram na área de administração já existente.
 - Atividade não inclui eventos de pedidos pendentes, de navegação nem de suporte; só os quatro tipos de FR-017.
@@ -324,5 +342,5 @@ administrador e ver o acesso negado.
 - Dependências: a constituição 1.8.0 (em vigor); o serviço de moedas atual (feed de moedas); o checkout e os pedidos da
   simulação (origem das compras confirmadas); a feature 013 muda o menu e a área do admin em paralelo, então conflitos de
   menu e de área do admin devem ser resolvidos na hora de juntar as branches.
-- Fora de escopo: pagamento ou liquidação real de oferta, arquivos reais de NFT, notificações por e-mail ou
+- Fora de escopo: validade (expiração) de ofertas, pagamento ou liquidação real de oferta, arquivos reais de NFT, notificações por e-mail ou
   push, anexos em chamados, avaliação do atendimento, busca dentro do suporte e páginas editoriais.
