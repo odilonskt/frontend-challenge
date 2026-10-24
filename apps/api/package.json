@@ -4,12 +4,14 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vercel dev --listen 3000",
+    "dev:vercel": "vercel dev --listen 3000",
     "dev:local": "tsx watch src/server.ts",
     "build": "tsc --noEmit",
     "typecheck": "tsc --noEmit",
     "lint": "oxlint src api",
-    "smoke-test": "node scripts/smoke-test.mjs"
+    "smoke-test": "node scripts/smoke-test.mjs",
+    "smoke-test:admin": "node scripts/admin-smoke-test.mjs",
+    "seed:admin": "tsx --env-file=.env.local scripts/seed-admin.ts"
   },
   "dependencies": {
     "@vercel/blob": "^0.27.3",

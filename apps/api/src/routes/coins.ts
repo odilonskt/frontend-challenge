@@ -1,7 +1,11 @@
 import { Router } from "express"
-import { z } from "zod"
 import { requireAuth } from "../lib/auth.js"
-import { ConcurrencyConflictError, InsufficientBalanceError } from "../domains/coins/contracts.js"
+import {
+  ConcurrencyConflictError,
+  InsufficientBalanceError,
+  amountSchema,
+  transactionsQuerySchema,
+} from "../domains/coins/contracts.js"
 import * as coinsService from "../domains/coins/service.js"
 import { badRequest, conflict, paymentRequired } from "../lib/errors.js"
 
@@ -11,14 +15,6 @@ import { badRequest, conflict, paymentRequired } from "../lib/errors.js"
 const router = Router()
 
 router.use(requireAuth)
-
-const amountSchema = z.object({
-  amount: z.number().int().positive(),
-})
-
-const transactionsQuerySchema = z.object({
-  limit: z.coerce.number().int().min(1).max(200).optional().default(50),
-})
 
 function ownerIdOrThrow(req: { ownerId?: string }): string {
   // Always set: this router sits behind requireAuth.

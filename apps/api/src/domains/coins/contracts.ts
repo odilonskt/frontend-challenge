@@ -22,6 +22,29 @@ export const coinTransactionRecordSchema = z.object({
 
 export type CoinTransactionRecord = z.infer<typeof coinTransactionRecordSchema>
 
+/**
+ * Request body for `POST /api/coins/topup` and `POST /api/coins/debit`.
+ * Centralized (single source) for runtime validation and OpenAPI generation.
+ * Moved verbatim from `routes/coins.ts` — `amount` MUST be a positive integer.
+ */
+export const amountSchema = z.object({
+  amount: z.number().int().positive(),
+})
+
+export type AmountRequest = z.infer<typeof amountSchema>
+
+/**
+ * Query for `GET /api/coins/transactions`. `limit` is an optional, coerced
+ * integer in `[1, 200]` defaulting to `50`. Centralized (single source) so the
+ * OpenAPI parameter is derived from the same schema that parses the request.
+ * Moved verbatim from `routes/coins.ts`.
+ */
+export const transactionsQuerySchema = z.object({
+  limit: z.coerce.number().int().min(1).max(200).optional().default(50),
+})
+
+export type TransactionsQuery = z.infer<typeof transactionsQuerySchema>
+
 export class InsufficientBalanceError extends Error {
   constructor() {
     super("Insufficient balance for this debit.")

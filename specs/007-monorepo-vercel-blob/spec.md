@@ -110,6 +110,13 @@ The new backend's example resource (a coins-style balance + transaction ledger, 
 - **FR-015**: The backend MUST expose a token-issuance route (`POST /api/auth/token`) that, given an owner id, returns a freshly signed token for that id. This issuance step still trusts the caller-provided owner id — it does not add real login/passwords to the project — so it MUST be documented as only protecting against identity-spoofing *after* a token has been issued, not against someone who directly requests a token for an id they already know (see Assumptions).
 - **FR-016**: Missing or invalid token-signing secret configuration MUST fail fast with a clear, specific error, both at startup and on first use — never silently issuing or accepting an unverifiable token.
 
+- **FR-017**: `apps/web` MUST reach `apps/api` through a same-origin proxy under a dedicated `/backend/*` prefix (mapped to the API's `/api/*`) — in dev/preview via the Vite proxy, in production via a `vercel.json` rewrite. The prefix MUST NOT be `/api`, which the MSW layer owns.
+- **FR-018**: `apps/web` MUST consume `apps/api` through a dedicated domain (`ledger`) that issues and caches one token per signed-in user, refreshes it before expiry, retries once on `401`, retries `409` write conflicts, validates every response with Zod, and drops cached tokens when the app session changes.
+- **FR-020**: `apps/api` MUST authenticate administrators with e-mail and password (`POST /admin/login`), store the password only as a salted scrypt hash in Vercel Blob, and answer a failed login identically for an unknown e-mail and a wrong password.
+- **FR-021**: Admin routes (`/admin/me`, `/admin/owners`, `/admin/owners/:ownerId`) MUST require a token with `role: "admin"`; owner tokens get `403`, and admin tokens MUST NOT be accepted on owner routes (`403`). `POST /auth/token` MUST never be able to issue an admin token. The routes are read-only.
+- **FR-022**: Admin credentials MUST be provisioned by a script that reads them from the environment (`pnpm seed:admin`); they MUST NOT appear in any file of the repository.
+- **FR-019**: The Playwright suite MUST exercise that domain against an MSW mock of `apps/api` (`src/mocks/contexts/ledger`), never against the real backend.
+
 ### Key Entities
 
 - **Coin Balance Blob Record** (example resource, proves the Blob-backed pattern): the current total for one owner id, stored as a single JSON object at a deterministic Blob path, carrying a version/revision marker used for optimistic concurrency. Never negative.

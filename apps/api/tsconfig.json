@@ -5,6 +5,7 @@
     "module": "nodenext",
     "moduleResolution": "nodenext",
     "types": ["node"],
+    "resolveJsonModule": true,
     "outDir": "./dist",
     "rootDir": ".",
     "skipLibCheck": true,

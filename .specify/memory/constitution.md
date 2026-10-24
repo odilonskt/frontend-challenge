@@ -1,6 +1,6 @@
 <!--
 Sync Impact Report
-- Version change: 1.1.0 → 1.2.0 → 1.2.1 → 1.3.0
+- Version change: 1.1.0 → 1.2.0 → 1.2.1 → 1.3.0 → 1.4.0
 - Modified principles: nenhum (nenhum princípio existente foi removido ou redefinido de forma
   incompatível; a mudança abaixo é uma segunda exceção aditiva, escopada a um workspace novo
   `apps/api` + `apps/web`, sem alterar `server/`, a exceção de 1.1.0, nem o restante de `src/`)
@@ -151,7 +151,15 @@ armazenamento.
 - `server/` (a exceção de 1.1.0, usada por `006-platform-coins`) MUST NOT ser modificado, movido ou
   substituído por esta exceção — as duas coexistem; reconciliar/aposentar `server/` em favor de
   `apps/api` é trabalho futuro fora do escopo desta emenda.
-- Modelo de identidade (revisado): diferente de `server/` (que confia direto no id recebido),
+- Administradores (1.4.0): `apps/api` autentica administradores com e-mail e senha de verdade. A senha MUST ser
+  guardada só como hash salgado (scrypt), nunca em claro, nunca em arquivo do repositório nem em log; o
+  cadastro inicial é feito por script que lê as credenciais do ambiente. O token de admin carrega
+  `role: "admin"`, é emitido somente por `POST /admin/login`, e MUST NOT ser aceito nas rotas de dono (nem o
+  inverso). Falha de login MUST ser indistinguível entre e-mail desconhecido e senha errada. As rotas
+  `/admin/*` são somente leitura; escrita/ajuste de saldo por admin segue fora de escopo. Limitação
+  assumida: o Vercel Blob só serve objetos por URL pública, então o hash fica em armazenamento não privado
+  (ver `apps/api/README.md`).
+- Modelo de identidade dos donos (revisado): diferente de `server/` (que confia direto no id recebido),
   `apps/api` exige um token assinado (JWT, segredo em variável de ambiente, expiração curta) em
   todas as rotas de `/coins/*`; o id do dono da requisição MUST vir exclusivamente da claim do token
   verificado, nunca de um header/body alternativo. A rota de emissão do token
@@ -183,4 +191,4 @@ expansão material; PATCH para esclarecimentos e correções de redação. Revis
 `/speckit-analyze` MUST verificar conformidade; regras de fronteira (Princípio I) são impostas
 automaticamente por `pnpm lint`. Orientação de uso diário: `docs/TEAMS.md` e `docs/CHALLENGE.md`.
 
-**Version**: 1.3.0 | **Ratified**: 2026-10-14 | **Last Amended**: 2026-10-23
+**Version**: 1.4.0 | **Ratified**: 2026-10-14 | **Last Amended**: 2026-10-24

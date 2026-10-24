@@ -124,11 +124,20 @@ async function main() {
 
   async function topUpOneWithRetry() {
     for (let attempt = 0; attempt < 10; attempt += 1) {
-      const { status } = await request("POST", "/coins/topup", { token: tokenC, body: { amount: 1 } })
+      const { status, json } = await request("POST", "/coins/topup", { token: tokenC, body: { amount: 1 } })
       if (status === 200) return
-      if (status !== 409) throw new Error(`unexpected top-up status during concurrency test: ${status}`)
+      // 409: a genuine optimistic-concurrency conflict (FR-008) — expected under load, retry.
+      // 500 blob_read_failed: Vercel's Blob CDN can reject a burst of same-pathname requests
+      // (either a brief read-after-write propagation gap, or — at high concurrency — its own
+      // bot-protection challenge on *.public.blob.vercel-storage.com; see README.md "Known,
+      // documented limitations"). Neither case is a lost update: nothing was written, so it's
+      // safe to retry the whole operation.
+      const isRetryableBlobHiccup = status === 500 && json?.error?.code === "blob_read_failed"
+      if (status !== 409 && !isRetryableBlobHiccup) {
+        throw new Error(`unexpected top-up status during concurrency test: ${status} ${JSON.stringify(json)}`)
+      }
     }
-    throw new Error("exceeded retry budget on 409 conflicts")
+    throw new Error("exceeded retry budget on 409 conflicts / blob read hiccups")
   }
 
   await Promise.all(Array.from({ length: CONCURRENT_COUNT }, () => topUpOneWithRetry()))
@@ -146,6 +155,76 @@ async function main() {
     json.transactions.length === 2 && json.transactions[0].direction === "debit"
       ? ok("transaction history returned, most recent first, correct count")
       : fail(`unexpected transaction history: ${JSON.stringify(json)}`)
+  }
+
+  // 10. OpenAPI / Swagger documentation (feature 009).
+  {
+    // 10a. /openapi.json -> 200 application/json, OpenAPI 3.1 document.
+    const res = await fetch(`${BASE_URL}/openapi.json`)
+    const contentType = res.headers.get("content-type") ?? ""
+    const doc = await res.json().catch(() => null)
+    res.status === 200 && contentType.includes("application/json") && typeof doc?.openapi === "string" && doc.openapi.startsWith("3.1")
+      ? ok("GET /openapi.json -> 200 application/json, openapi 3.1 (SC-002)")
+      : fail(`unexpected /openapi.json: ${res.status} ${contentType} openapi=${doc?.openapi}`)
+
+    if (doc) {
+      // 10b. All 6 operations present with the right methods (SC-001).
+      const expected = [
+        ["/health", "get"],
+        ["/auth/token", "post"],
+        ["/coins/balance", "get"],
+        ["/coins/topup", "post"],
+        ["/coins/debit", "post"],
+        ["/coins/transactions", "get"],
+      ]
+      const missingOps = expected.filter(([p, m]) => !doc.paths?.[p]?.[m])
+      missingOps.length === 0
+        ? ok("all 6 operations documented in paths (SC-001)")
+        : fail(`missing operations: ${missingOps.map(([p, m]) => `${m.toUpperCase()} ${p}`).join(", ")}`)
+
+      // 10c. bearerAuth defined; applied only to /coins/*.
+      const hasBearer = doc.components?.securitySchemes?.bearerAuth?.scheme === "bearer"
+      const securedCorrectly =
+        !doc.paths["/health"].get.security &&
+        !doc.paths["/auth/token"].post.security &&
+        Boolean(doc.paths["/coins/balance"].get.security) &&
+        Boolean(doc.paths["/coins/topup"].post.security) &&
+        Boolean(doc.paths["/coins/debit"].post.security) &&
+        Boolean(doc.paths["/coins/transactions"].get.security)
+      hasBearer && securedCorrectly
+        ? ok("bearerAuth scheme present and applied only to /coins/* (FR-004)")
+        : fail(`security misconfigured: hasBearer=${hasBearer} securedCorrectly=${securedCorrectly}`)
+
+      // 10d. Expected component schemas present, none leaking $schema.
+      const needed = ["TokenRequest", "AmountRequest", "CoinBalanceRecord", "CoinTransactionRecord", "Error"]
+      const schemas = doc.components?.schemas ?? {}
+      const missingSchemas = needed.filter((n) => !schemas[n])
+      const leaks = Object.entries(schemas).filter(([, s]) => s && "$schema" in s).map(([n]) => n)
+      missingSchemas.length === 0 && leaks.length === 0
+        ? ok("expected components present, no $schema leakage")
+        : fail(`schemas missing=${missingSchemas.join(",")} leaking=${leaks.join(",")}`)
+
+      // 10e. limit query param documented as input (optional, default 50) (FR-007).
+      const limitParam = doc.paths["/coins/transactions"].get.parameters?.[0]
+      limitParam?.required === false && limitParam?.schema?.default === 50
+        ? ok("limit param documented as optional input with default 50 (FR-007)")
+        : fail(`limit param wrong: ${JSON.stringify(limitParam)}`)
+
+      // 10f. Known limitations stated in the description; no secrets leaked (FR-009/SC-007).
+      const desc = String(doc.info?.description ?? "")
+      const statesLimits = /ownerId/.test(desc) && /Blob/i.test(desc)
+      const leaksSecret = /AUTH_JWT_SECRET\s*=|BLOB_READ_WRITE_TOKEN\s*=/.test(JSON.stringify(doc))
+      statesLimits && !leaksSecret
+        ? ok("description states known limitations, no secrets leaked (FR-009/SC-007)")
+        : fail(`limitations/secrets check failed: statesLimits=${statesLimits} leaksSecret=${leaksSecret}`)
+    }
+
+    // 10g. /docs -> 200 text/html (Swagger UI shell).
+    const docsRes = await fetch(`${BASE_URL}/docs`)
+    const docsType = docsRes.headers.get("content-type") ?? ""
+    docsRes.status === 200 && docsType.includes("text/html")
+      ? ok("GET /docs -> 200 text/html (Swagger UI)")
+      : fail(`unexpected /docs: ${docsRes.status} ${docsType}`)
   }
 
   if (failures > 0) {

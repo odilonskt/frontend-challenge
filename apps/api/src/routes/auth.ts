@@ -1,13 +1,9 @@
 import { Router } from "express"
-import { z } from "zod"
 import { signToken } from "../lib/auth.js"
+import { tokenRequestSchema } from "../domains/auth/contracts.js"
 import { badRequest } from "../lib/errors.js"
 
 const router = Router()
-
-const tokenRequestSchema = z.object({
-  ownerId: z.string().trim().min(1),
-})
 
 router.post("/token", (req, res, next) => {
   const parsed = tokenRequestSchema.safeParse(req.body)

@@ -19,6 +19,10 @@ export function unauthorized(code: string, message: string): ApiError {
   return new ApiError(401, code, message)
 }
 
+export function forbidden(code: string, message: string): ApiError {
+  return new ApiError(403, code, message)
+}
+
 export function paymentRequired(code: string, message: string): ApiError {
   return new ApiError(402, code, message)
 }

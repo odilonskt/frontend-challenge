@@ -79,7 +79,7 @@ deste plano.*
 |-----------|-----------|
 | I. Camadas e fronteiras | OK para `apps/web`: a árvore interna (`app/routes → pages → domains → shared`) não muda, só o diretório-pai dela (`src/` passa a viver sob `apps/web/`). `apps/api` fica fora dessa árvore e não participa dessa regra, assim como `server/` já não participa. |
 | II. Tipagem estrita | OK. `apps/api` é TypeScript estrito, `any` proibido, mesma convenção de `server/`; contratos de Blob e de token tipados em `apps/api/src/lib/storage` e `apps/api/src/lib/auth`. |
-| III. Estado remoto | N/A para `apps/api` (ele é o lado servidor). `apps/web` não ganha nenhum novo consumo remoto nesta feature — é puramente infraestrutura/backend de exemplo, sem UI nova. |
+| III. Estado remoto | N/A para `apps/api` (ele é o lado servidor). `apps/web` ganha o domínio `ledger` (FR-017 a FR-019): cliente Axios próprio via proxy `/backend`, TanStack Query com chaves por usuário e cancelamento por `signal`, respostas validadas com Zod, mutations com atualização do cache. Sem UI nova ainda. Escritas não usam chave de idempotência porque a API não a suporta (limitação registrada). |
 | IV. Tempo real | N/A — nenhum evento Socket.IO novo. |
 | V. Mocks só em `src/mocks` | **Exceção explícita, nova (v1.3.0)** — `apps/api`, como `server/` antes dele, é deliberadamente real, não mock. Nada em `src/mocks`/`apps/web` muda. |
 | VI. Acessibilidade/responsividade/fidelidade | N/A — nenhuma tela nova nesta feature. |

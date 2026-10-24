@@ -92,3 +92,29 @@ Lista o histórico de transações do owner identificado pelo token, mais recent
 - **200**: `{ "ownerId": "string", "transactions": CoinTransactionRecord[] }`
 - **400**: `limit` inválido.
 - **401**: token ausente, expirado ou com assinatura inválida.
+
+## Rotas de administrador (FR-020 a FR-022)
+
+Token de admin: `role: "admin"`, emitido só por `POST /api/admin/login`. Token de dono em rota de admin
+⇒ `403 admin_only`; token de admin em rota de dono (`/coins/*`) ⇒ `403 wrong_token_type`.
+
+### POST /api/admin/login
+
+- **Body**: `{ "email": "string (e-mail válido, ≤ 254)", "password": "string (1–256)" }`
+- **200**: `{ "token": "string", "expiresAt": "ISO-8601", "admin": { "id": "string", "email": "string" } }`
+- **400**: corpo inválido. **401** `invalid_credentials`: e-mail desconhecido **ou** senha errada, com resposta idêntica.
+
+### GET /api/admin/me · `Authorization: Bearer <token de admin>`
+
+- **200**: `{ "id": "string", "role": "admin" }` · **401** sem token/inválido · **403** token de dono.
+
+### GET /api/admin/owners
+
+- **Query**: `limit` (1–200, default 50), `cursor` (da resposta anterior)
+- **200**: `{ "owners": [{ "ownerId": "string", "updatedAt": "ISO-8601" }], "cursor": "string | omitido" }`
+  — vem dos metadados do Blob (sem leitura por dono). **400** query inválida.
+
+### GET /api/admin/owners/:ownerId
+
+- `ownerId` MUST casar `[A-Za-z0-9_.-]{1,128}` (sem `/`, que colidiria com o prefixo de outro dono) ⇒ **400** caso contrário.
+- **200**: `{ "balance": CoinBalanceRecord, "transactions": CoinTransactionRecord[] }` (até 50, mais recentes primeiro).

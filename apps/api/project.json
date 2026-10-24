@@ -7,7 +7,7 @@
   "targets": {
     "dev": {
       "executor": "nx:run-commands",
-      "options": { "command": "pnpm run dev", "cwd": "apps/api" }
+      "options": { "command": "pnpm run dev:vercel", "cwd": "apps/api" }
     },
     "build": {
       "executor": "nx:run-commands",
