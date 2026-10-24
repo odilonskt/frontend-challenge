@@ -17,20 +17,21 @@ async function call(
   ownerId: string,
   config: { method: 'GET' | 'POST'; url: string; data?: unknown; params?: unknown },
   schema: 'balance' | 'transactions',
+  idempotencyKey?: string,
 ): Promise<Outcome> {
   return page.evaluate(
-    async ([owner, cfg, schemaName]) => {
+    async ([owner, cfg, schemaName, key]) => {
       const client = await import('/src/domains/ledger/api/client.ts')
       const contracts = await import('/src/domains/ledger/model/contracts.ts')
       const zodSchema = schemaName === 'balance' ? contracts.ledgerBalanceSchema : contracts.ledgerTransactionsSchema
       try {
-        return { ok: true as const, value: await client.ledgerRequest(owner, cfg, zodSchema) }
+        return { ok: true as const, value: await client.ledgerRequest(owner, cfg, zodSchema, key) }
       } catch (error) {
         const e = error as { status: number | null; code: string }
         return { ok: false as const, status: e.status, code: e.code }
       }
     },
-    [ownerId, config, schema] as const,
+    [ownerId, config, schema, idempotencyKey] as const,
   )
 }
 
@@ -116,5 +117,60 @@ test.describe('ledger client (mocked apps/api)', () => {
     await boot(page)
     const body = await page.evaluate(async () => (await fetch('/backend/health')).json())
     expect(body).toEqual({ status: 'ok' })
+  })
+})
+
+// specs/011-web-coins-real-api: the mock applies `Idempotency-Key` exactly like apps/api (010 api-delta), and the
+// client never retries a 409 (it now means "key already used for another operation").
+test.describe('ledger idempotency (mocked apps/api)', () => {
+  const historyOf = async (page: Page, owner: string) => {
+    const result = await call(page, owner, { method: 'GET', url: '/coins/transactions' }, 'transactions')
+    return (result as { value: { transactions: unknown[] } }).value.transactions
+  }
+
+  test('the same key sent 20 times applies once and always answers the same balance', async ({ page }) => {
+    await boot(page)
+    const owner = `usr_${Date.now().toString(36)}k`
+    const results = await Promise.all(
+      Array.from({ length: 20 }, () =>
+        call(page, owner, { method: 'POST', url: '/coins/topup', data: { amount: 25 } }, 'balance', 'same-key-20'),
+      ),
+    )
+    for (const result of results) expect(result).toMatchObject({ ok: true, value: { amount: 25, version: 1 } })
+    expect(await historyOf(page, owner)).toHaveLength(1)
+  })
+
+  test('the same key with another amount is a final 409, sent exactly once', async ({ page }) => {
+    await boot(page)
+    const owner = `usr_${Date.now().toString(36)}c`
+    await call(page, owner, { method: 'POST', url: '/coins/topup', data: { amount: 10 } }, 'balance', 'key-conflict')
+
+    let posts = 0
+    page.on('request', (request) => {
+      if (request.method() === 'POST' && request.url().endsWith('/coins/topup')) posts += 1
+    })
+    const conflict = await call(page, owner, { method: 'POST', url: '/coins/topup', data: { amount: 11 } }, 'balance', 'key-conflict')
+    expect(conflict).toEqual({ ok: false, status: 409, code: 'idempotency_key_conflict' })
+    expect(posts).toBe(1)
+  })
+
+  test('a key longer than 128 characters is rejected with 400 before any effect', async ({ page }) => {
+    await boot(page)
+    const owner = `usr_${Date.now().toString(36)}l`
+    const tooLong = await call(page, owner, { method: 'POST', url: '/coins/topup', data: { amount: 1 } }, 'balance', 'k'.repeat(129))
+    expect(tooLong).toEqual({ ok: false, status: 400, code: 'invalid_idempotency_key' })
+    expect(await historyOf(page, owner)).toHaveLength(0)
+  })
+
+  test('balance and history survive a page reload, like the real API', async ({ page }) => {
+    await boot(page)
+    const owner = `usr_${Date.now().toString(36)}r`
+    await call(page, owner, { method: 'POST', url: '/coins/topup', data: { amount: 40 } }, 'balance', 'reload-key')
+
+    await page.reload()
+    await page.getByRole('banner').waitFor()
+    const balance = await call(page, owner, { method: 'GET', url: '/coins/balance' }, 'balance')
+    expect(balance).toMatchObject({ ok: true, value: { amount: 40, version: 1 } })
+    expect(await historyOf(page, owner)).toHaveLength(1)
   })
 })

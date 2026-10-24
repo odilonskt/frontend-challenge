@@ -33,7 +33,7 @@ import { store } from './state'
 import { systemClock } from './infra/store'
 
 const API = '/api'
-// The real Vercel/Blob backend (apps/api) is reached through `/backend/*`; in tests it is mocked here.
+// The real backend (apps/api) is reached through `/backend/*`; in dev and tests it is mocked here.
 const BACKEND = env.backendBaseUrl
 const clock = systemClock
 
@@ -100,7 +100,12 @@ export const handlers = [
   ...orderHandlers(API, auth, orders, () => scenarioRuntime.current.orderResponseDelayMs ?? 0),
   // Only when backend mocks are on (dev, e2e). Production/preview turn them off so `/backend/*` reaches
   // the real apps/api instead of being answered here (specs/008-web-production-env, FR-005).
-  ...(env.enableBackendMocks ? ledgerHandlers(BACKEND, ledger) : []),
+  ...(env.enableBackendMocks
+    ? ledgerHandlers(BACKEND, ledger, {
+        unavailable: () => scenarioRuntime.current.ledgerUnavailable === true,
+        loseFirstWriteResponse: () => scenarioRuntime.current.ledgerLoseFirstWriteResponse === true,
+      })
+    : []),
   realtime.handler,
 ]
 

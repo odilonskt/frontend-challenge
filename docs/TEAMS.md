@@ -116,7 +116,9 @@ Fonte de verdade: `specs/001-design-system-standards` (`contracts/design-tokens.
 
 - O `apps/web` é publicado como projeto Vercel próprio (`nft-marketplace-web`). Produção é uma **demonstração
   com mocks**: o MSW atende `/api/*` (Princípio V); só `/backend/*` chega à API real (`apps/api`) por rewrite.
-- Moedas (006) ficam desativadas em produção (`VITE_COINS_API_URL` não definida; `server/` usa SQLite).
+- Moedas da Kurio ficam **ativas em produção** (specs/011-web-coins-real-api): o domínio `ledger` fala com o `apps/api`
+  real por `/backend`. O antigo `domains/coins` (cliente do `server/`) foi removido. Limitação: a emissão do token de
+  moedas confia no id da sessão simulada, então as moedas publicadas são de demonstração.
 - Variáveis: `apps/web/.env.production` (valores públicos) e a matriz em
   `specs/008-web-production-env/data-model.md`. Ambientes por projeto: `specs/008-web-production-env/deploy-environments.md`.
 - Publicar e validar: `specs/008-web-production-env/quickstart.md`.
@@ -135,9 +137,8 @@ Variáveis `VITE_*` são embutidas no build; mudar uma exige novo deploy. Previe
 | `VITE_ENABLE_MOCKS` | `true` | `true` |
 | `VITE_ENABLE_BACKEND_MOCKS` | `true` (padrão em dev) | **`false`** (padrão em build de produção) |
 | `VITE_BACKEND_BASE_URL` | `/backend` | `/backend` |
-| `VITE_COINS_API_URL` | `http://localhost:4000` (padrão só em dev) | **não definir** — moedas ficam desativadas |
 
-Consequências para quem mexe no código: moedas (`domains/coins`) somem em produção (`coinsEnabled`); o mock do
-`/backend` não é registrado em produção; `src/shared/config/zod.ts` precisa ser o primeiro import de `main.tsx`
+Consequências para quem mexe no código: as moedas (`domains/ledger`) aparecem em todos os ambientes e o mock do
+`/backend` não é registrado em produção (lá o `/backend` chega ao `apps/api` real); `src/shared/config/zod.ts` precisa ser o primeiro import de `main.tsx`
 (CSP sem `unsafe-eval`). Testes do build de produção: `pnpm --dir apps/web test:e2e:production`; ausência de
 `localhost:<porta>` no bundle: `pnpm --dir apps/web check:production-bundle`.

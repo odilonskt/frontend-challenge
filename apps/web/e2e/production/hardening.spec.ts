@@ -1,14 +1,20 @@
 import { expect, test, type Page } from '@playwright/test'
 import { seedCartItem, signIn } from '../design-system/helpers'
 
-// US3 — the production build must not depend on local infrastructure, must hide the coins feature
-// (its backend, server/, cannot run on Vercel) and must run under the real security headers.
+// The production build must not depend on local infrastructure and must run under the real security headers.
+// Since specs/011-web-coins-real-api the coins feature is ON in production: it talks to the real apps/api only
+// through the same-origin `/backend` path (never the retired server/ on port 4000).
+//
+// Locally nothing listens behind the preview's `/backend` proxy, so the coins section must show its "unavailable"
+// state; against a published deploy (PLAYWRIGHT_BASE_URL) the real API answers and the balance is shown.
 
 declare global {
   interface Window {
     __csp?: string[]
   }
 }
+
+const published = Boolean(process.env.PLAYWRIGHT_BASE_URL)
 
 async function watchCsp(page: Page) {
   await page.addInitScript(() => {
@@ -18,7 +24,7 @@ async function watchCsp(page: Page) {
   })
 }
 
-test('coins are hidden and nothing calls localhost, across a full journey', async ({ page }) => {
+test('coins are visible and only ever reach /backend, across a full journey', async ({ page }) => {
   const requests: string[] = []
   page.on('request', (request) => requests.push(request.url()))
   await watchCsp(page)
@@ -31,20 +37,27 @@ test('coins are hidden and nothing calls localhost, across a full journey', asyn
     await page.waitForLoadState('networkidle')
   }
 
-  // Wallets: no coins balance section.
+  // Wallets: the coins section is there, with the real balance or, locally, the unavailable state.
   await page.goto('/account/wallets')
-  await expect(page.getByRole('heading', { name: 'Carteira principal' })).toBeVisible()
-  await expect(page.getByRole('heading', { name: 'Moedas da Kurio' })).toHaveCount(0)
+  const coins = page.getByRole('region', { name: 'Moedas da Kurio' })
+  await expect(coins).toBeVisible()
+  if (published) {
+    await expect(coins.getByText(/^\d+ moedas$/)).toBeVisible({ timeout: 15_000 })
+  } else {
+    await expect(coins.getByRole('alert')).toContainText('Serviço de moedas indisponível. Tente novamente.', { timeout: 15_000 })
+  }
 
-  // Checkout: no payment-method picker, but the wallet/ETH purchase flow is intact.
+  // Checkout: the payment-method picker offers coins next to the wallet/ETH flow.
   await page.goto('/checkout')
   await expect(page.getByRole('button', { name: 'Confirmar compra' })).toBeVisible()
-  await expect(page.getByText('Forma de pagamento')).toHaveCount(0)
-  await expect(page.getByLabel('Pagar com moedas da Kurio')).toHaveCount(0)
+  await expect(page.getByLabel('Pagar com moedas da Kurio')).toBeVisible()
 
-  // No request to the coins backend (port 4000) at any point.
-  const coinsCalls = requests.filter((url) => new URL(url).port === '4000')
-  expect(coinsCalls).toEqual([])
+  // Every coins call is same-origin under /backend; nothing ever reaches the old coins backend (port 4000).
+  const origin = new URL(page.url()).origin
+  const coinsCalls = requests.filter((url) => /\/(coins|auth\/token)(\/|\?|$)/.test(new URL(url).pathname) && !url.startsWith(`${origin}/api/`))
+  expect(coinsCalls.length).toBeGreaterThan(0)
+  for (const url of coinsCalls) expect(url.startsWith(`${origin}/backend/`), url).toBe(true)
+  expect(requests.filter((url) => new URL(url).port === '4000')).toEqual([])
 
   // No Content-Security-Policy violation during the whole journey, except the known MSW WebSocket attempt
   // to ws://localhost/socket.io/ (see storefront.spec.ts): the CSP blocking it is the desired outcome.
