@@ -19,21 +19,44 @@ Marketplace de NFTs em React + TypeScript, desenvolvido como resposta ao desafio
 
 ## Como rodar
 
+Monorepo pnpm + Nx: o frontend fica em `apps/web`, o backend Vercel em `apps/api` (ver
+`apps/api/README.md`) e o backend de moedas da 006 continua em `server/`. Detalhes em `docs/TEAMS.md`.
+
 ```bash
-pnpm install
-pnpm dev            # http://localhost:5173, com MSW ativo no navegador
+pnpm install        # uma vez, na raiz — instala todos os projetos
+pnpm dev            # web em http://localhost:5173, com MSW ativo no navegador
+pnpm dev:all        # web + api (vercel dev) + server/ juntos
 ```
+
+Scripts da raiz (via Nx, em todos os projetos):
 
 | Script | O que faz |
 | --- | --- |
-| `pnpm build` | Typecheck + build de produção |
-| `pnpm preview` | Serve o build em `:4173` |
-| `pnpm typecheck` | Checagem de tipos |
-| `pnpm lint` | oxlint, inclui as regras de fronteira entre camadas |
-| `pnpm check:tokens` | Falha se houver cor/valor avulso fora dos tokens do design system |
-| `pnpm test:e2e` | Testes Playwright contra os mocks (`test:e2e:update` atualiza snapshots) |
-| `pnpm lighthouse` | Auditoria de desempenho e acessibilidade |
-| `pnpm generate:art` | Gera as ilustrações SVG em `public/art` |
+| `pnpm build` | Build de todos os projetos |
+| `pnpm typecheck` | Checagem de tipos de todos os projetos |
+| `pnpm lint` | oxlint em todos os projetos (no web, inclui as regras de fronteira entre camadas) |
+| `pnpm test:e2e` | Testes Playwright do web contra os mocks |
+
+Scripts só do frontend (rodar com `pnpm --dir apps/web <script>`):
+
+| Script | O que faz |
+| --- | --- |
+| `preview` | Serve o build em `:4173` |
+| `check:tokens` | Falha se houver cor/valor avulso fora dos tokens do design system |
+| `test:e2e:update` | Atualiza os snapshots do Playwright |
+| `lighthouse` | Auditoria de desempenho e acessibilidade |
+| `generate:art` | Gera as ilustrações SVG em `public/art` |
+
+## Publicação (Vercel)
+
+O `apps/web` é publicado como projeto Vercel próprio, como um demo com mocks; `/backend/*` chega à API real
+(`apps/api`) por rewrite. Procedimento completo, variáveis por ambiente e verificações:
+`specs/008-web-production-env/quickstart.md`. Antes de publicar:
+
+```bash
+pnpm --dir apps/web check:production-bundle   # nenhum localhost:<porta> no bundle
+pnpm --dir apps/web test:e2e:production       # build de produção: moedas ocultas, CSP sem violações, /backend não mockado
+```
 
 ## Telas
 
@@ -84,6 +107,12 @@ Identidade baseada no tema escuro da marca, com fonte monoespaçada única (Spac
 | Foco e realces | `#CFB28C` |
 
 Tokens ficam em `src/index.css`; componentes em `src/shared/ui`. Em telas pequenas, a navegação principal vai para uma dock fixa inferior. Contratos completos em `specs/001-design-system-standards/contracts/`.
+
+## Publicação
+
+O `apps/web` vai para a Vercel como projeto próprio (demo com mocks; `/backend/*` chega à `apps/api`).
+Antes de publicar: `pnpm --dir apps/web test:e2e:production` e `pnpm --dir apps/web check:production-bundle`.
+Procedimento completo: [`specs/008-web-production-env/quickstart.md`](specs/008-web-production-env/quickstart.md).
 
 ## Desenvolvimento orientado a especificação
 

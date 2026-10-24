@@ -27,8 +27,12 @@ dist-ssr
 .env
 .env.local
 
+# Monorepo tooling
+.nx/
+.vercel/
+
 # Playwright / Lighthouse
-/test-results/
-/playwright-report/
-/blob-report/
-/playwright/.cache/
+test-results/
+playwright-report/
+blob-report/
+playwright/.cache/

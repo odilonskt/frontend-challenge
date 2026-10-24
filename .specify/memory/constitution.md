@@ -1,10 +1,16 @@
 <!--
 Sync Impact Report
-- Version change: 1.0.0 → 1.1.0
+- Version change: 1.1.0 → 1.2.0 → 1.2.1 → 1.3.0 → 1.4.0
 - Modified principles: nenhum (nenhum princípio existente foi removido ou redefinido de forma
-  incompatível; Princípio V e a tabela de "Stack obrigatória" continuam valendo integralmente
-  para tudo em `src/` — a mudança abaixo é uma exceção aditiva, escopada a um diretório novo)
-- Added sections: "Exceção Pontual: Backend Real de Moedas da Plataforma (`server/`)"
+  incompatível; a mudança abaixo é uma segunda exceção aditiva, escopada a um workspace novo
+  `apps/api` + `apps/web`, sem alterar `server/`, a exceção de 1.1.0, nem o restante de `src/`)
+- Added sections: "Exceção Pontual: Monorepo na Vercel com Vercel Blob (`apps/web`, `apps/api`)"
+- 1.2.1: esclarecimento aditivo dentro da mesma seção — stack explícita de `apps/api` passa a citar
+  Express (pedido explícito do usuário para o plano da 007), em vez de ficar implícita
+- 1.3.0: o modelo de identidade de `apps/api` muda de "confia cegamente no id enviado" para "token
+  assinado e verificado (JWT) por requisição, derivado só do token" — uma mudança material de
+  comportamento (não só de redação), por isso MINOR em vez de PATCH; a limitação de que a emissão do
+  token ainda confia no id pedido (sem login real) permanece e fica documentada explicitamente
 - Removed sections: nenhum
 - Follow-up TODOs: nenhum
 -->
@@ -116,6 +122,55 @@ existente, que o time decidiu implementar com persistência real em vez de simul
   exige uma nova emenda explícita a esta constituição, não uma extensão silenciosa do escopo aqui
   definido.
 
+## Exceção Pontual: Monorepo na Vercel com Vercel Blob (`apps/web`, `apps/api`)
+
+Esta seção abre uma segunda exceção explícita, aditiva e escopada — independente da exceção de
+`server/` acima, que continua valendo exatamente como está. Nada nela muda; esta nova seção existe
+apenas para a feature `007-monorepo-vercel-blob`, que reestrutura o repositório em um workspace
+pnpm + Nx e introduz um novo backend (`apps/api`) implantado na Vercel, usando Vercel Blob como
+armazenamento.
+
+- O repositório raiz pode ser reorganizado em um workspace pnpm (`pnpm-workspace.yaml`) com Nx por
+  cima para orquestração de tarefas/cache/grafo de projetos — isto é permitido **apenas** para esta
+  reestruturação (`apps/web`, `apps/api`, `packages/*` que vierem a existir); pnpm continua sendo o
+  gerenciador de pacotes, Nx é aditivo, não substitui o pnpm.
+- `apps/web` é a SPA React existente, movida sem mudança de comportamento; todos os Princípios I-VII
+  continuam valendo integralmente dentro dela, sem exceção.
+- `apps/api` é um novo backend real, implantado como Vercel Serverless Functions, isento da regra
+  "toda simulação MUST residir em `src/mocks`" (Princípio V) pelo mesmo motivo que `server/` já é:
+  não é uma simulação.
+- Stack permitida dentro de `apps/api`: Node.js, TypeScript, **Express** (mesmo framework já usado
+  em `server/`, montado atrás de uma única Vercel Function catch-all), `cors`, `zod`, o SDK
+  `@vercel/blob`, e uma biblioteca de JWT (ex. `jsonwebtoken`) para o modelo de identidade abaixo.
+  Nenhum driver de banco relacional é introduzido.
+- `apps/api` persiste dados via **Vercel Blob**, incluindo dados estruturados (saldo e histórico de
+  transações do recurso de exemplo) — uma escolha deliberada, feita cientes de que Blob não tem
+  transações nem locks nativos; a mitigação exigida é controle de concorrência otimista (ler versão
+  atual, escrever nova versão, rejeitar/repetir em conflito), documentada como limitação aceita e
+  nunca apresentada como consistência transacional real.
+- `server/` (a exceção de 1.1.0, usada por `006-platform-coins`) MUST NOT ser modificado, movido ou
+  substituído por esta exceção — as duas coexistem; reconciliar/aposentar `server/` em favor de
+  `apps/api` é trabalho futuro fora do escopo desta emenda.
+- Administradores (1.4.0): `apps/api` autentica administradores com e-mail e senha de verdade. A senha MUST ser
+  guardada só como hash salgado (scrypt), nunca em claro, nunca em arquivo do repositório nem em log; o
+  cadastro inicial é feito por script que lê as credenciais do ambiente. O token de admin carrega
+  `role: "admin"`, é emitido somente por `POST /admin/login`, e MUST NOT ser aceito nas rotas de dono (nem o
+  inverso). Falha de login MUST ser indistinguível entre e-mail desconhecido e senha errada. As rotas
+  `/admin/*` são somente leitura; escrita/ajuste de saldo por admin segue fora de escopo. Limitação
+  assumida: o Vercel Blob só serve objetos por URL pública, então o hash fica em armazenamento não privado
+  (ver `apps/api/README.md`).
+- Modelo de identidade dos donos (revisado): diferente de `server/` (que confia direto no id recebido),
+  `apps/api` exige um token assinado (JWT, segredo em variável de ambiente, expiração curta) em
+  todas as rotas de `/coins/*`; o id do dono da requisição MUST vir exclusivamente da claim do token
+  verificado, nunca de um header/body alternativo. A rota de emissão do token
+  (`POST /api/auth/token`) continua confiando no id que lhe é pedido — isto não introduz login/senha
+  real ao produto — e essa limitação específica (emissão confia, uso subsequente não) MUST ficar
+  documentada de forma explícita no README de `apps/api` e na spec da 007, nunca apresentada como
+  proteção completa contra uso indevido de conta.
+- O Playwright/e2e existente MUST continuar rodando inteiramente contra os mocks do frontend; não é
+  apontado para `apps/api`. `apps/api` precisa de sua própria estratégia de verificação.
+- Qualquer expansão futura desta exceção exige nova emenda explícita a esta constituição.
+
 ## Fluxo de Desenvolvimento e Qualidade
 
 - Cada mudança segue o fluxo Spec Kit: especificação → plano → tarefas → implementação.
@@ -136,4 +191,4 @@ expansão material; PATCH para esclarecimentos e correções de redação. Revis
 `/speckit-analyze` MUST verificar conformidade; regras de fronteira (Princípio I) são impostas
 automaticamente por `pnpm lint`. Orientação de uso diário: `docs/TEAMS.md` e `docs/CHALLENGE.md`.
 
-**Version**: 1.1.0 | **Ratified**: 2026-10-14 | **Last Amended**: 2026-10-21
+**Version**: 1.4.0 | **Ratified**: 2026-10-14 | **Last Amended**: 2026-10-24

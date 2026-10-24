@@ -1,7 +1,22 @@
 # Organização do código
 
-O projeto separa **páginas** (o que o usuário vê, uma pasta por tela) de **domínios** (regras de negócio
-compartilhadas entre telas). Cada time é dono de uma ou mais páginas e consome os domínios pela API pública.
+O repositório é um workspace **pnpm + Nx** (`pnpm-workspace.yaml`, `nx.json`):
+
+```
+apps/web/     SPA React (o frontend descrito abaixo) — todos os caminhos `src/...` deste documento
+              são relativos a apps/web/
+apps/api/     backend real em Express na Vercel, com Vercel Blob e auth por JWT
+              (specs/007-monorepo-vercel-blob, README próprio)
+server/       backend real de moedas da 006 (Express + SQLite), fora do workspace, intocado
+```
+
+Comandos na raiz: `pnpm dev` (web), `pnpm dev:api`, `pnpm dev:all` (web + api + server),
+`pnpm build` / `pnpm typecheck` / `pnpm lint` (todos os projetos via Nx), `pnpm test:e2e` (web).
+Para um projeto só: `nx run web:<alvo>` ou `nx run api:<alvo>`.
+
+Dentro de `apps/web`, o projeto separa **páginas** (o que o usuário vê, uma pasta por tela) de
+**domínios** (regras de negócio compartilhadas entre telas). Cada time é dono de uma ou mais páginas e
+consome os domínios pela API pública.
 
 ```
 src/
@@ -96,3 +111,33 @@ Fonte de verdade: `specs/001-design-system-standards` (`contracts/design-tokens.
 - **Catálogo**: `/design-system` (dev e build de demonstração) mostra tokens, ícones e componentes com seus estados.
 - **Regra de revisão**: cor, fonte, espaçamento ou componente fora do catálogo exige justificativa no PR; se aprovado,
   atualize o contrato e o catálogo.
+
+## Ambiente de produção
+
+- O `apps/web` é publicado como projeto Vercel próprio (`nft-marketplace-web`). Produção é uma **demonstração
+  com mocks**: o MSW atende `/api/*` (Princípio V); só `/backend/*` chega à API real (`apps/api`) por rewrite.
+- Moedas (006) ficam desativadas em produção (`VITE_COINS_API_URL` não definida; `server/` usa SQLite).
+- Variáveis: `apps/web/.env.production` (valores públicos) e a matriz em
+  `specs/008-web-production-env/data-model.md`. Ambientes por projeto: `specs/008-web-production-env/deploy-environments.md`.
+- Publicar e validar: `specs/008-web-production-env/quickstart.md`.
+
+## Ambiente de produção (`apps/web`)
+
+O site publicado é um **demo com mocks**: o MSW atende `/api/*` (catálogo, auth, carrinho, pedidos), porque o
+produto não tem back-end real para isso (constituição, Princípio V). O único tráfego real é o do domínio
+`ledger`, que chega a `apps/api` por `/backend/*` (rewrite em `apps/web/vercel.json`). Detalhes, contrato de
+entrega e procedimento: `specs/008-web-production-env/`.
+
+Variáveis `VITE_*` são embutidas no build; mudar uma exige novo deploy. Preview e produção usam o mesmo conjunto.
+
+| Variável | Dev / e2e | Preview = Produção |
+| --- | --- | --- |
+| `VITE_ENABLE_MOCKS` | `true` | `true` |
+| `VITE_ENABLE_BACKEND_MOCKS` | `true` (padrão em dev) | **`false`** (padrão em build de produção) |
+| `VITE_BACKEND_BASE_URL` | `/backend` | `/backend` |
+| `VITE_COINS_API_URL` | `http://localhost:4000` (padrão só em dev) | **não definir** — moedas ficam desativadas |
+
+Consequências para quem mexe no código: moedas (`domains/coins`) somem em produção (`coinsEnabled`); o mock do
+`/backend` não é registrado em produção; `src/shared/config/zod.ts` precisa ser o primeiro import de `main.tsx`
+(CSP sem `unsafe-eval`). Testes do build de produção: `pnpm --dir apps/web test:e2e:production`; ausência de
+`localhost:<porta>` no bundle: `pnpm --dir apps/web check:production-bundle`.
