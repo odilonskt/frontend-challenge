@@ -111,7 +111,7 @@ test('checkout has no critical accessibility violations', async ({ page }) => {
   await signIn(page)
   await seedCartItem(page)
   await page.goto('/checkout')
-  await expect(page.getByRole('heading', { name: 'Pagamento' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Pagamento', exact: true })).toBeVisible()
   expect(await runAxe(page)).toEqual([])
 })
 
@@ -123,7 +123,7 @@ for (const [name, viewport] of Object.entries(VIEWPORTS)) {
       await signIn(page)
       await seedCartItem(page)
       await page.goto('/checkout')
-      await expect(page.getByRole('heading', { name: 'Pagamento' })).toBeVisible()
+      await expect(page.getByRole('heading', { name: 'Pagamento', exact: true })).toBeVisible()
       expect(await hasNoHorizontalScroll(page)).toBe(true)
       await expect(page).toHaveScreenshot(`checkout-${viewport.width}.png`, { fullPage: true })
     })

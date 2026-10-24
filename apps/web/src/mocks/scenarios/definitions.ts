@@ -33,6 +33,10 @@ export interface ScenarioDefinition {
   /** Catalog mutation applied right before the first order attempt is validated. */
   checkoutMutation?: 'price_change' | 'sold_out'
   walletRejects?: boolean
+  /** The coins service (`/backend`) answers 503 on every route except /health. */
+  ledgerUnavailable?: boolean
+  /** The first coins write of each owner is applied, then answered 503 (response lost after the commit). */
+  ledgerLoseFirstWriteResponse?: boolean
   realtimeOffline?: boolean
 }
 
@@ -75,6 +79,8 @@ export const SCENARIOS: ScenarioDefinition[] = [
   { id: 'sold-out-at-checkout', label: 'Edição esgota no checkout', description: 'A edição do primeiro item esgota no envio do pedido.', latency: DEFAULT_LATENCY, checkoutMutation: 'sold_out' },
   { id: 'order-timeout', label: 'Timeout ao criar pedido', description: 'O pedido é criado, mas a resposta excede o timeout do cliente.', latency: DEFAULT_LATENCY, orderResponseDelayMs: 12_000 },
   { id: 'payment-declined', label: 'Pagamento recusado', description: 'A liquidação do pedido é recusada.', latency: DEFAULT_LATENCY, paymentOutcome: 'declined' },
+  { id: 'coins-unavailable', label: 'Moedas indisponíveis', description: 'O serviço de moedas (/backend) responde 503.', latency: DEFAULT_LATENCY, ledgerUnavailable: true },
+  { id: 'coins-response-lost', label: 'Resposta de moedas perdida', description: 'A primeira recarga/débito é aplicada, mas a resposta volta como 503.', latency: DEFAULT_LATENCY, ledgerLoseFirstWriteResponse: true },
   { id: 'wallet-rejected', label: 'Carteira recusa conexão', description: 'A conexão com a carteira é recusada.', latency: DEFAULT_LATENCY, walletRejects: true },
   { id: 'realtime-offline', label: 'Tempo real fora do ar', description: 'O Socket.IO recusa conexões (REST continua).', latency: DEFAULT_LATENCY, realtimeOffline: true },
 ]

@@ -23,7 +23,7 @@ export default defineConfig({
       : {}),
   },
   // Only when testing locally; a published URL needs no server. Production values per
-  // specs/008-web-production-env/data-model.md; VITE_COINS_API_URL is deliberately left unset.
+  // specs/008-web-production-env/data-model.md (coins reach the real API through /backend, specs/011).
   webServer: publishedUrl
     ? undefined
     : {

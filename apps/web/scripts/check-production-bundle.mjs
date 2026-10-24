@@ -1,6 +1,7 @@
 // Builds the app with the production values of specs/008-web-production-env/data-model.md and fails if the
 // bundle contains a `localhost:<port>` address (SC-003 / FR-007): application config must never point a
-// visitor's browser at its own machine (the regression this guards: coins defaulting to http://localhost:4000).
+// visitor's browser at its own machine (the regression this guards: the retired coins client of server/ defaulting to
+// http://localhost:4000; coins now go through the same-origin /backend, specs/011-web-coins-real-api).
 //   pnpm check:production-bundle
 //
 // What is NOT a failure, on purpose: bare `localhost` words inside third-party library code — cookie
@@ -12,7 +13,6 @@ import { readdirSync, readFileSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 
 const env = { ...process.env, VITE_ENABLE_MOCKS: 'true', VITE_ENABLE_BACKEND_MOCKS: 'false' }
-delete env.VITE_COINS_API_URL // the production build must have no coins backend
 
 const build = spawnSync(process.execPath, ['./node_modules/vite/bin/vite.js', 'build'], { env, stdio: 'inherit' })
 if (build.status !== 0) process.exit(build.status ?? 1)

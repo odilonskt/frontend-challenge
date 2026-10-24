@@ -5,7 +5,7 @@ import { env } from '@/shared/config/env'
 import { ledgerErrorBodySchema, ledgerTokenSchema } from '../model/contracts'
 
 /**
- * A separate Axios instance for the real Vercel/Blob backend (`apps/api`), reached through the
+ * A separate Axios instance for the real backend (`apps/api`, Postgres on Neon), reached through the
  * same-origin `/backend` proxy. It deliberately never reuses `@/shared/api/http` (whose `/api` prefix
  * is owned by MSW) nor `coins`' client (which talks to `server/`, a different backend and identity model).
  */
@@ -29,6 +29,11 @@ export class LedgerError extends Error {
 
   get isInsufficientBalance() {
     return this.status === 402
+  }
+
+  /** The `Idempotency-Key` was already used for a different operation: final, never retried. */
+  get isKeyConflict() {
+    return this.status === 409
   }
 
   /** Network failures, timeouts and 5xx can succeed on a later attempt; 4xx cannot. */
@@ -109,27 +114,30 @@ subscribeSessionToken(clearLedgerTokens)
 
 // --- Requests ----------------------------------------------------------------------------------------
 
-const CONFLICT_RETRIES = 3
-const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
-
 /**
- * Authenticated, schema-validated request. Handles the two retry rules of the contract:
- * a 401 (expired token) re-issues the token once; a 409 on a write (optimistic-concurrency conflict)
- * is re-sent a few times, because `apps/api` documents that the caller MUST retry it.
+ * Authenticated, schema-validated request. The only automatic retry is the contract's token rule: a 401
+ * (expired token) re-issues the token once. A 409 means the `Idempotency-Key` was already used for a
+ * different operation, so it is thrown at once (re-sending cannot succeed). Writes pass an idempotency key
+ * so a retry after a timeout replays the original result instead of applying the operation twice.
  */
 export async function ledgerRequest<T>(
   ownerId: string,
   config: AxiosRequestConfig,
   schema: z.ZodType<T>,
+  idempotencyKey?: string,
 ): Promise<T> {
   let refreshedAfter401 = false
 
-  for (let attempt = 0; ; attempt += 1) {
+  for (;;) {
     try {
       const token = await tokenFor(ownerId)
       const { data } = await ledgerHttp.request({
         ...config,
-        headers: { ...config.headers, Authorization: `Bearer ${token}` },
+        headers: {
+          ...config.headers,
+          Authorization: `Bearer ${token}`,
+          ...(idempotencyKey === undefined ? {} : { 'Idempotency-Key': idempotencyKey }),
+        },
       })
       return schema.parse(data)
     } catch (error) {
@@ -138,10 +146,6 @@ export async function ledgerRequest<T>(
       if (ledgerError.status === 401 && !refreshedAfter401) {
         refreshedAfter401 = true
         tokens.delete(ownerId)
-        continue
-      }
-      if (ledgerError.status === 409 && attempt < CONFLICT_RETRIES) {
-        await wait(100 * (attempt + 1))
         continue
       }
       throw ledgerError

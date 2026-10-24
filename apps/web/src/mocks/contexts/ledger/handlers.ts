@@ -1,12 +1,29 @@
 import { HttpResponse, http } from 'msw'
-import { LedgerMockError, type LedgerService } from './service'
+import { LedgerMockError, type LedgerBalanceRecord, type LedgerService } from './service'
 
 const MAX_LIMIT = 200
 
+/** Failure modes driven by the active mock scenario (specs/011-web-coins-real-api, research D8). */
+export interface LedgerFailurePolicy {
+  /** Every route except `/health` answers 503, as if the coins service were down. */
+  unavailable: () => boolean
+  /** The first write of each owner is applied, then answered 503: a response lost after the commit. */
+  loseFirstWriteResponse: () => boolean
+}
+
+const noFailures: LedgerFailurePolicy = { unavailable: () => false, loseFirstWriteResponse: () => false }
+
+const serviceUnavailable = () =>
+  new LedgerMockError(503, 'service_unavailable', 'The coins service is temporarily unavailable.')
+
 /** `base` is the app's `/backend` prefix, which Vite/vercel.json map to the real API's `/api`. */
-export function ledgerHandlers(base: string, ledger: LedgerService) {
+export function ledgerHandlers(base: string, ledger: LedgerService, failures: LedgerFailurePolicy = noFailures) {
+  // Owners whose first write already had its response dropped (in memory: one loss per owner per page load).
+  const lostResponseFor = new Set<string>()
+
   const run = (fn: () => Response | Promise<Response>) => async () => {
     try {
+      if (failures.unavailable()) throw serviceUnavailable()
       return await fn()
     } catch (error) {
       if (error instanceof LedgerMockError) {
@@ -22,6 +39,17 @@ export function ledgerHandlers(base: string, ledger: LedgerService) {
   }
 
   const ownerOf = (request: Request) => ledger.authenticate(request.headers.get('authorization'))
+  const keyOf = (request: Request) => request.headers.get('idempotency-key')
+
+  /** Applies the write, then (in the response-lost scenario) answers 503 once per owner, as a lost response would. */
+  const answerWrite = (ownerId: string, write: () => LedgerBalanceRecord) => {
+    const result = write()
+    if (failures.loseFirstWriteResponse() && !lostResponseFor.has(ownerId)) {
+      lostResponseFor.add(ownerId)
+      throw serviceUnavailable()
+    }
+    return HttpResponse.json(result)
+  }
 
   return [
     http.get(`${base}/health`, () => HttpResponse.json({ status: 'ok' })),
@@ -50,14 +78,16 @@ export function ledgerHandlers(base: string, ledger: LedgerService) {
     http.post(`${base}/coins/topup`, ({ request }) =>
       run(async () => {
         const ownerId = ownerOf(request)
-        return HttpResponse.json(ledger.topUp(ownerId, (await bodyOf(request)).amount))
+        const { amount } = await bodyOf(request)
+        return answerWrite(ownerId, () => ledger.topUp(ownerId, amount, keyOf(request)))
       })(),
     ),
 
     http.post(`${base}/coins/debit`, ({ request }) =>
       run(async () => {
         const ownerId = ownerOf(request)
-        return HttpResponse.json(ledger.debit(ownerId, (await bodyOf(request)).amount))
+        const { amount } = await bodyOf(request)
+        return answerWrite(ownerId, () => ledger.debit(ownerId, amount, keyOf(request)))
       })(),
     ),
   ]

@@ -152,7 +152,7 @@ Monorepo (per plan.md): `apps/web/` (existing frontend, relocated unchanged), `a
 - [X] T044 Create the `ledger` domain in `apps/web/src/domains/ledger/` — `model/contracts.ts` (Zod schemas), `api/client.ts` (Axios instance, `LedgerError`, per-user token cache with in-flight dedupe, 30s refresh margin, one retry on `401`, up to 3 retries on `409`, tokens cleared on session change via `subscribeSessionToken`), `api/queries.ts` (`useLedgerBalance`, `useLedgerTransactions`, `useLedgerTopUp`, `useLedgerDebit`; per-user query keys; request cancellation via `signal`), `index.ts`, `README.md` (FR-018)
 - [X] T045 Mock `apps/api` in `apps/web/src/mocks/contexts/ledger/` (`service.ts`, `handlers.ts`), wire it in `src/mocks/composition.ts` and reset it in `mockControls.reset` (FR-019)
 - [X] T046 Add `apps/web/e2e/ledger/ledger.spec.ts`: runs the real client in the browser against the mock — token issuance, top-up/debit/history, `402`, owner isolation, `400`/`401`, token re-issue after `401`, `/backend/health` (FR-019). 6/6 pass. `web` typecheck, lint and build pass; the full suite shows the same 6 pre-existing snapshot failures plus one checkout accessibility test that failed under load and passed 3/3 in isolation.
-- [ ] T047 **NOT DONE (no spec'd UI)** — No page consumes the `ledger` hooks yet. The connection (proxy, auth, client, hooks, mocks) is in place; showing balance/top-up in the UI needs its own spec and design.
+- [X] T047 (done by 011-web-coins-real-api) **not done within 007 (no spec'd UI there)** — No page consumes the `ledger` hooks yet. The connection (proxy, auth, client, hooks, mocks) is in place; showing balance/top-up in the UI needs its own spec and design.
 
 ---
 

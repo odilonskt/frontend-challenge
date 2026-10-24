@@ -1,7 +1,12 @@
-// Simulates `apps/api` (specs/007-monorepo-vercel-blob/contracts/api-routes.md) for tests and offline
-// demos. It reproduces the contract (token issuance, per-owner isolation, 401/402/400), not the Blob storage.
+import { LocalStoragePersistence, Store } from '../../infra/store'
+
+// Simulates `apps/api` (specs/007-monorepo-vercel-blob/contracts/api-routes.md + specs/010-api-production-backend/
+// contracts/api-delta.md) for tests and offline demos. It reproduces the contract (token issuance, per-owner
+// isolation, 400/401/402, `Idempotency-Key` with replay and 409), not the database. State is persisted like the rest
+// of the mock, so a reload keeps the coins exactly as the real API would (specs/011-web-coins-real-api, FR-011).
 
 const TOKEN_TTL_MS = 15 * 60 * 1000
+const MAX_KEY_LENGTH = 128
 
 export interface LedgerBalanceRecord {
   ownerId: string
@@ -19,6 +24,22 @@ export interface LedgerTransactionRecord {
   createdAt: string
 }
 
+interface StoredOperation {
+  direction: 'credit' | 'debit'
+  amount: number
+  result: LedgerBalanceRecord
+}
+
+interface LedgerState {
+  balances: Record<string, LedgerBalanceRecord>
+  history: Record<string, LedgerTransactionRecord[]>
+  /** `${ownerId}\u0000${key}` -> the operation that key already applied. */
+  operations: Record<string, StoredOperation>
+  sequence: number
+}
+
+const emptyState = (): LedgerState => ({ balances: {}, history: {}, operations: {}, sequence: 0 })
+
 /** Error carrying the API's `{ error: { code, message } }` contract. */
 export class LedgerMockError extends Error {
   readonly status: number
@@ -32,20 +53,19 @@ export class LedgerMockError extends Error {
 }
 
 export class LedgerService {
-  private balances = new Map<string, LedgerBalanceRecord>()
-  private history = new Map<string, LedgerTransactionRecord[]>()
-  private sequence = 0
-
+  private readonly store: Store<LedgerState>
   private readonly now: () => number
 
-  constructor(now: () => number = Date.now) {
+  constructor(
+    now: () => number = Date.now,
+    store: Store<LedgerState> = new Store(new LocalStoragePersistence<LedgerState>('nft-mock:ledger', 1), emptyState),
+  ) {
     this.now = now
+    this.store = store
   }
 
   reset() {
-    this.balances.clear()
-    this.history.clear()
-    this.sequence = 0
+    this.store.reset()
   }
 
   issueToken(ownerId: unknown) {
@@ -73,19 +93,26 @@ export class LedgerService {
   }
 
   getBalance(ownerId: string): LedgerBalanceRecord {
-    return this.balances.get(ownerId) ?? { ownerId, amount: 0, version: 0, updatedAt: new Date(0).toISOString() }
+    return (
+      this.store.read((s) => s.balances[ownerId]) ?? {
+        ownerId,
+        amount: 0,
+        version: 0,
+        updatedAt: new Date(0).toISOString(),
+      }
+    )
   }
 
-  topUp(ownerId: string, amount: unknown) {
-    return this.apply(ownerId, 'credit', this.validAmount(amount))
+  topUp(ownerId: string, amount: unknown, idempotencyKey?: string | null) {
+    return this.applyOnce(ownerId, 'credit', this.validAmount(amount), idempotencyKey)
   }
 
-  debit(ownerId: string, amount: unknown) {
-    return this.apply(ownerId, 'debit', this.validAmount(amount))
+  debit(ownerId: string, amount: unknown, idempotencyKey?: string | null) {
+    return this.applyOnce(ownerId, 'debit', this.validAmount(amount), idempotencyKey)
   }
 
   listTransactions(ownerId: string, limit: number) {
-    return [...(this.history.get(ownerId) ?? [])].reverse().slice(0, limit)
+    return [...(this.store.read((s) => s.history[ownerId]) ?? [])].reverse().slice(0, limit)
   }
 
   private validAmount(amount: unknown): number {
@@ -93,6 +120,35 @@ export class LedgerService {
       throw new LedgerMockError(400, 'invalid_amount', 'amount MUST be a positive integer.')
     }
     return amount
+  }
+
+  /** Same key + same operation -> the original result, nothing written; same key + another operation -> 409. */
+  private applyOnce(
+    ownerId: string,
+    direction: 'credit' | 'debit',
+    amount: number,
+    idempotencyKey: string | null | undefined,
+  ): LedgerBalanceRecord {
+    if (idempotencyKey === undefined || idempotencyKey === null) return this.apply(ownerId, direction, amount)
+    if (idempotencyKey.length < 1 || idempotencyKey.length > MAX_KEY_LENGTH) {
+      throw new LedgerMockError(400, 'invalid_idempotency_key', 'Idempotency-Key MUST have between 1 and 128 characters.')
+    }
+
+    const operationId = `${ownerId}\u0000${idempotencyKey}`
+    const stored = this.store.read((s) => s.operations[operationId])
+    if (stored) {
+      if (stored.direction !== direction || stored.amount !== amount) {
+        throw new LedgerMockError(409, 'idempotency_key_conflict', 'This Idempotency-Key was already used for a different operation.')
+      }
+      return stored.result
+    }
+
+    // A 402 throws before anything is stored, so the same key can be used again once the balance allows it.
+    const result = this.apply(ownerId, direction, amount)
+    this.store.write((s) => {
+      s.operations[operationId] = { direction, amount, result }
+    })
+    return result
   }
 
   private apply(ownerId: string, direction: 'credit' | 'debit', amount: number): LedgerBalanceRecord {
@@ -104,18 +160,20 @@ export class LedgerService {
 
     const updatedAt = new Date(this.now()).toISOString()
     const record: LedgerBalanceRecord = { ownerId, amount: next, version: current.version + 1, updatedAt }
-    this.balances.set(ownerId, record)
 
-    this.sequence += 1
-    const entry: LedgerTransactionRecord = {
-      txId: `mock-tx-${this.sequence}`,
-      ownerId,
-      direction,
-      amount,
-      resultingBalance: next,
-      createdAt: updatedAt,
-    }
-    this.history.set(ownerId, [...(this.history.get(ownerId) ?? []), entry])
+    this.store.write((s) => {
+      s.balances[ownerId] = record
+      s.sequence += 1
+      const entry: LedgerTransactionRecord = {
+        txId: `mock-tx-${s.sequence}`,
+        ownerId,
+        direction,
+        amount,
+        resultingBalance: next,
+        createdAt: updatedAt,
+      }
+      s.history[ownerId] = [...(s.history[ownerId] ?? []), entry]
+    })
     return record
   }
 }

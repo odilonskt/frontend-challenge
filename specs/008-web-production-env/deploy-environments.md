@@ -10,7 +10,7 @@ Vercel por aplicação** (D1), sem `vercel.json` de serviços na raiz.
 |---|---|---|---|---|
 | Front-end | `apps/web` | projeto `nft-marketplace-web` (preset Vite, estático) | `*.vercel.app` | a criar (esta feature) |
 | API | `apps/api` | projeto `nft-marketplace-api` (função Express em `api/index.ts`) | `https://nft-marketplace-api-ochre.vercel.app` | publicado, `/api/*` respondendo (2026-10-24) |
-| Moedas (006) | `server/` | **não implantável** (SQLite local) | n/a | fora do deploy; moedas ocultas em produção |
+| Moedas (006) | `server/` | **não implantável** (SQLite local) | n/a | fora do deploy; o site não o usa mais (moedas via `apps/api`, spec 011) |
 
 Ligação: navegador → `web` (`/backend/*` rewrite) → `api` (`/api/*`). O `web` nunca chama a API por URL
 absoluta no código (sem CORS); só o `vercel.json` conhece o domínio da API (destino fixo, D4).
@@ -32,7 +32,6 @@ Fonte de verdade: `data-model.md`. Arquivos:
 | `VITE_ENABLE_BACKEND_MOCKS` | `true` (padrão em dev) | `false` | `false` |
 | `VITE_API_BASE_URL` | `/api` | `/api` | `/api` |
 | `VITE_BACKEND_BASE_URL` | `/backend` | `/backend` | `/backend` |
-| `VITE_COINS_API_URL` | `http://localhost:4000` | não definida | não definida |
 | `VITE_REQUEST_TIMEOUT_MS` | `8000` | `8000` | `8000` |
 | `VITE_SOCKET_URL` | `ws://localhost/realtime` | idem | idem (identificador do mock) |
 | `BACKEND_PROXY_TARGET` | `http://localhost:3000` | n/a | n/a |
@@ -60,8 +59,8 @@ implantação e verificação: `specs/010-api-production-backend/quickstart.md`.
 
 ## `server/` — moedas (006)
 
-Sem deploy. Em produção o front-end o ignora (`coinsEnabled=false`). Reativar exige migrar para `apps/api`
-ou um banco hospedado — feature própria, fora do escopo.
+Sem deploy. O site não usa mais o `server/`: desde a spec 011 (`specs/011-web-coins-real-api`) as moedas do site,
+inclusive em produção, vêm do `apps/api` pelo caminho `/backend` (domínio `ledger`), e `VITE_COINS_API_URL` deixou de existir.
 
 ## Ordem de publicação
 

@@ -1,8 +1,3 @@
-// Dev-only default (specs/006-platform-coins): `import.meta.env.DEV` is a build-time constant, so a
-// production build drops this literal entirely and never contains a reference to `localhost:4000`.
-const coinsApiUrl: string | undefined =
-  import.meta.env.VITE_COINS_API_URL ?? (import.meta.env.DEV ? 'http://localhost:4000' : undefined)
-
 /** Centralised, typed access to build-time configuration. */
 export const env = {
   apiBaseUrl: import.meta.env.VITE_API_BASE_URL ?? '/api',
@@ -25,11 +20,4 @@ export const env = {
    * Vite (dev/preview) and `vercel.json` (prod) proxy `/backend/*` to the API's `/api/*`.
    */
   backendBaseUrl: import.meta.env.VITE_BACKEND_BASE_URL ?? '/backend',
-  /**
-   * Real (not mocked) backend for the platform-coins feature — see specs/006-platform-coins.
-   * `undefined` in production unless configured: `server/` (SQLite) cannot run on Vercel.
-   */
-  coinsApiUrl,
-  /** Coins UI and queries exist only when a coins backend is configured (specs/008-web-production-env FR-008). */
-  coinsEnabled: coinsApiUrl !== undefined,
 } as const

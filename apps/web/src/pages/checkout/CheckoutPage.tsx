@@ -1,11 +1,21 @@
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { useSession } from '@/domains/auth'
 import { cartQueries, useCartQuote } from '@/domains/cart'
-import { idempotencyKeyFor } from '@/domains/checkout'
-import { debitCoins, InsufficientCoinsError, refundCoins, toCoinsAmount } from '@/domains/coins'
+import { idempotencyKeyFor, rotateIdempotencyKey } from '@/domains/checkout'
+import {
+  coinsKeys,
+  invalidateLedger,
+  LedgerError,
+  ledgerCredit,
+  ledgerDebit,
+  ledgerErrorMessage,
+  ledgerKeys,
+  toCoinsAmount,
+  type LedgerBalance,
+} from '@/domains/ledger'
 import { useCreateOrder } from '@/domains/orders'
 import type { Network } from '@/domains/wallets'
 import { isApiError } from '@/shared/api/http'
@@ -20,8 +30,27 @@ import { WalletPicker } from './components/WalletPicker'
 
 const FALLBACK_NETWORK: Network = 'ethereum'
 
+/** Coins to give back after a definitely rejected order; kept so the collector can retry with the same key. */
+interface PendingRefund {
+  userId: string
+  amount: number
+  key: string
+  quoteSignature: string
+}
+
+interface CoinsNotice {
+  message: string
+  refund?: PendingRefund
+}
+
+/** The order system answered that it did not create the order (4xx): safe to give the coins back. */
+function isDefiniteRejection(error: unknown) {
+  return isApiError(error) && error.status !== null && error.status >= 400 && error.status < 500
+}
+
 export function CheckoutPage() {
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
   const session = useSession()
   const cart = useQuery(cartQueries.view())
   const form = useCollectorForm()
@@ -29,13 +58,31 @@ export function CheckoutPage() {
   const quote = useCartQuote(network)
   const [walletId, setWalletId] = useState<string | null>(null)
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('wallet')
+  const [submitting, setSubmitting] = useState(false)
+  const [coinsNotice, setCoinsNotice] = useState<CoinsNotice | null>(null)
+  // A ref, not state: a double click reaches the handler before React re-renders the disabled button.
+  const inFlight = useRef(false)
   const createOrder = useCreateOrder()
 
   useEffect(() => {
     if (cart.data && cart.data.items.length === 0) void navigate({ to: '/cart' })
   }, [cart.data, navigate])
 
-  async function onSubmit(values: CollectorFormValues) {
+  /** Credits the coins of a rejected order back. Rotates the quote's key only once the coins are back. */
+  async function giveCoinsBack(refund: PendingRefund) {
+    try {
+      await ledgerCredit(refund.userId, refund.amount, refund.key)
+      rotateIdempotencyKey(refund.quoteSignature)
+      setCoinsNotice(null)
+      toast.success('Pedido não criado; suas moedas foram devolvidas.')
+    } catch {
+      setCoinsNotice({ message: 'Suas moedas ainda não voltaram.', refund })
+    } finally {
+      void invalidateLedger(queryClient, refund.userId)
+    }
+  }
+
+  async function submit(values: CollectorFormValues) {
     if (!quote.data) return
     if (!quote.data.purchasable) {
       toast.error('Revise seu carrinho: alguns itens não podem ser finalizados.')
@@ -52,32 +99,35 @@ export function CheckoutPage() {
       return
     }
 
-    const idempotencyKey = idempotencyKeyFor(fresh.data.signature)
+    const quoteSignature = fresh.data.signature
+    const idempotencyKey = idempotencyKeyFor(quoteSignature)
 
-    // Paying with coins hits a second, independent (real, not mocked) system before the order
-    // itself is created — see specs/006-platform-coins/research.md D5. If the debit succeeds but
-    // the order then fails, the coins are refunded best-effort (FR-009); there is no shared
-    // transaction across the two systems, by design.
-    let coinsAmount: number | null = null
+    // Paying with coins debits the real coins service before the order exists (the two systems share no
+    // transaction). The debit key derives from the order key, so retrying the same order replays the debit
+    // instead of charging twice (specs/011-web-coins-real-api/data-model.md, "Estados do pagamento com moedas").
+    let coins: { userId: string; amount: number; keys: ReturnType<typeof coinsKeys> } | null = null
     if (paymentMethod === 'coins') {
       const userId = session.data?.user.id
       if (!userId) return // unreachable on a protected route, but keeps the branch exhaustive
-      coinsAmount = toCoinsAmount(fresh.data.total)
+      const amount = toCoinsAmount(fresh.data.total)
+      const keys = coinsKeys(idempotencyKey)
+      setCoinsNotice(null)
       try {
-        await debitCoins(userId, coinsAmount, idempotencyKey)
+        await ledgerDebit(userId, amount, keys.debit)
       } catch (error) {
-        if (error instanceof InsufficientCoinsError) {
-          toast.error(error.message)
-        } else {
-          toast.error('Não foi possível debitar as moedas. Tente novamente.')
-        }
+        const balance = queryClient.getQueryData<LedgerBalance>(ledgerKeys.balance(userId))?.amount
+        const insufficient = error instanceof LedgerError && error.isInsufficientBalance
+        setCoinsNotice({ message: ledgerErrorMessage(error, insufficient ? { balance, required: amount } : undefined) })
         return
+      } finally {
+        void invalidateLedger(queryClient, userId)
       }
+      coins = { userId, amount, keys }
     }
 
     try {
       const order = await createOrder.mutateAsync({
-        quoteSignature: fresh.data.signature,
+        quoteSignature,
         network,
         walletId,
         collector: { fullName: values.fullName, email: values.email, country: 'BR', note: values.note },
@@ -85,22 +135,31 @@ export function CheckoutPage() {
       })
       void navigate({ to: '/orders/$orderId', params: { orderId: order.id } })
     } catch (error) {
-      if (paymentMethod === 'coins' && coinsAmount !== null) {
-        const userId = session.data?.user.id
-        if (userId) {
-          try {
-            await refundCoins(userId, coinsAmount, idempotencyKey)
-          } catch {
-            // Best-effort compensation (research.md D5) — surfaced to the console, not re-thrown,
-            // since the order-creation failure below is the error the collector needs to see.
-            console.error('[coins] refund after failed order creation did not complete')
-          }
+      if (coins !== null) {
+        if (isDefiniteRejection(error)) {
+          await giveCoinsBack({ userId: coins.userId, amount: coins.amount, key: coins.keys.refund, quoteSignature })
+        } else {
+          // Ambiguous (network, timeout, 5xx): the order may exist, so the coins stay debited. A retry reuses the
+          // same keys, which replays both the debit and the order without a new effect.
+          setCoinsNotice({ message: 'Não confirmamos a compra. Confira seus pedidos antes de tentar de novo.' })
         }
       }
       toast.error(isApiError(error) ? error.message : 'Não foi possível confirmar a compra.')
       // A stale-quote rejection (price/stock changed server-side) must update what's on screen,
       // not just the toast — otherwise the user "reviews" a total that's already wrong.
       void quote.refetch()
+    }
+  }
+
+  async function onSubmit(values: CollectorFormValues) {
+    if (inFlight.current) return
+    inFlight.current = true
+    setSubmitting(true)
+    try {
+      await submit(values)
+    } finally {
+      inFlight.current = false
+      setSubmitting(false)
     }
   }
 
@@ -114,6 +173,8 @@ export function CheckoutPage() {
       />
     )
   }
+
+  const pendingRefund = coinsNotice?.refund
 
   return (
     <PageContainer className="py-8">
@@ -131,9 +192,24 @@ export function CheckoutPage() {
         <div className="flex flex-col gap-4">
           {quote.isPending && <Skeleton className="h-96 w-full" />}
           {quote.data && <OrderSummary quote={quote.data} />}
-          <Button type="button" size="lg" disabled={createOrder.isPending || quote.isPending} onClick={form.handleSubmit(onSubmit)}>
-            {createOrder.isPending ? 'Confirmando…' : 'Confirmar compra'}
+          <Button
+            type="button"
+            size="lg"
+            disabled={submitting || createOrder.isPending || quote.isPending}
+            onClick={form.handleSubmit(onSubmit)}
+          >
+            {submitting || createOrder.isPending ? 'Confirmando…' : 'Confirmar compra'}
           </Button>
+          {coinsNotice && (
+            <div role="alert" className="flex flex-col gap-2 text-destructive">
+              <p>{coinsNotice.message}</p>
+              {pendingRefund && (
+                <Button type="button" variant="outline" onClick={() => void giveCoinsBack(pendingRefund)}>
+                  Devolver moedas de novo
+                </Button>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </PageContainer>

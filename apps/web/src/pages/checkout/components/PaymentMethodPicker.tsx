@@ -1,8 +1,11 @@
-import { coinsEnabled, useCoinsBalance } from '@/domains/coins'
+import { LedgerError, ledgerErrorMessage, useLedgerBalance } from '@/domains/ledger'
 import { RadioGroup, RadioGroupItem } from '@/shared/ui/radio-group'
 import { Skeleton } from '@/shared/ui/skeleton'
 
 export type PaymentMethod = 'wallet' | 'coins'
+
+// A local 402 so the hint uses exactly the message the debit would produce (one wording, data-model "Erro").
+const insufficientBalance = new LedgerError({ status: 402, code: 'insufficient_balance', message: '' })
 
 /**
  * Only the "which currency pays" choice — a connected wallet is still selected separately and
@@ -19,12 +22,8 @@ export function PaymentMethodPicker({
   onMethodChange: (method: PaymentMethod) => void
   coinsRequired: number
 }) {
-  const coinsBalance = useCoinsBalance()
-  const insufficientCoins = coinsBalance.data !== undefined && coinsBalance.data.balance < coinsRequired
-
-  // No coins backend in this build (production): the page keeps its default `wallet` method and shows
-  // no picker at all, since a single option would be a choice that is not one.
-  if (!coinsEnabled) return null
+  const coinsBalance = useLedgerBalance()
+  const insufficientCoins = coinsBalance.data !== undefined && coinsBalance.data.amount < coinsRequired
 
   return (
     <div className="flex flex-col gap-4">
@@ -44,15 +43,21 @@ export function PaymentMethodPicker({
       {method === 'coins' && (
         <div className="flex flex-col gap-2 rounded-sm border border-border p-3">
           {coinsBalance.isPending && <Skeleton className="h-6 w-32" />}
+          {coinsBalance.isError && (
+            <p role="alert" className="text-destructive">
+              {ledgerErrorMessage(coinsBalance.error)}
+            </p>
+          )}
           {coinsBalance.data && (
             <p aria-live="polite">
-              Saldo atual: <strong>{coinsBalance.data.balance} moedas</strong> · Custo desta compra:{' '}
+              Saldo atual: <strong>{coinsBalance.data.amount} moedas</strong> · Custo desta compra:{' '}
               <strong>{coinsRequired} moedas</strong>
             </p>
           )}
-          {insufficientCoins && (
+          {insufficientCoins && coinsBalance.data && (
             <p role="alert" className="text-destructive">
-              Saldo de moedas insuficiente para esta compra. Recarregue em Carteiras ou escolha pagar com a carteira.
+              {ledgerErrorMessage(insufficientBalance, { balance: coinsBalance.data.amount, required: coinsRequired })} Recarregue
+              em Carteiras ou escolha pagar com a carteira.
             </p>
           )}
         </div>
