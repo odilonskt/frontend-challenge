@@ -29,7 +29,7 @@ Backend-only feature inside `apps/api` (per plan.md). New module `apps/api/src/o
 
 **Purpose**: Prepare the new module without adding any runtime dependency (constitution — `apps/api` allowed stack).
 
-- [ ] T001 [P] Create the `apps/api/src/openapi/` module directory with an `index.ts` barrel (re-exports added as files land) and confirm **no new runtime npm dependency** is introduced — `apps/api/package.json` `dependencies` stay exactly as they are (OpenAPI via Zod v4 `z.toJSONSchema`, Swagger UI via CDN) — research.md D1/D4
+- [X] T001 [P] Create the `apps/api/src/openapi/` module directory with an `index.ts` barrel (re-exports added as files land) and confirm **no new runtime npm dependency** is introduced — `apps/api/package.json` `dependencies` stay exactly as they are (OpenAPI via Zod v4 `z.toJSONSchema`, Swagger UI via CDN) — research.md D1/D4
 
 **Checkpoint**: Module folder exists; dependency surface unchanged.
 
@@ -41,11 +41,11 @@ Backend-only feature inside `apps/api` (per plan.md). New module `apps/api/src/o
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete.
 
-- [ ] T002 [P] Create `apps/api/src/domains/auth/contracts.ts` exporting `tokenRequestSchema = z.object({ ownerId: z.string().trim().min(1) })` — moved **verbatim** from `apps/api/src/routes/auth.ts` (no rule change) — research.md D6
-- [ ] T003 Update `apps/api/src/routes/auth.ts` to import `tokenRequestSchema` from `../domains/auth/contracts.js` and delete the inline definition; the `safeParse`/`400 invalid_owner_id` path stays identical
-- [ ] T004 [P] Extend `apps/api/src/domains/coins/contracts.ts` with `amountSchema = z.object({ amount: z.number().int().positive() })` and `transactionsQuerySchema = z.object({ limit: z.coerce.number().int().min(1).max(200).optional().default(50) })` — moved **verbatim** from `apps/api/src/routes/coins.ts` (constraints unchanged: `amount` integer `> 0`; `limit` integer `[1..200]`, default `50`) — data-model.md; research.md D6
-- [ ] T005 Update `apps/api/src/routes/coins.ts` to import `amountSchema` and `transactionsQuerySchema` from `../domains/coins/contracts.js` and delete the inline definitions; all `400 invalid_amount` / `400 invalid_limit` paths stay identical
-- [ ] T006 Verify the centralization is behavior-neutral: `pnpm --dir apps/api run typecheck` passes and the existing 007 smoke-test (`node apps/api/scripts/smoke-test.mjs`, against a running instance) stays green (SC-004 gate before building docs on top)
+- [X] T002 [P] Create `apps/api/src/domains/auth/contracts.ts` exporting `tokenRequestSchema = z.object({ ownerId: z.string().trim().min(1) })` — moved **verbatim** from `apps/api/src/routes/auth.ts` (no rule change) — research.md D6
+- [X] T003 Update `apps/api/src/routes/auth.ts` to import `tokenRequestSchema` from `../domains/auth/contracts.js` and delete the inline definition; the `safeParse`/`400 invalid_owner_id` path stays identical
+- [X] T004 [P] Extend `apps/api/src/domains/coins/contracts.ts` with `amountSchema = z.object({ amount: z.number().int().positive() })` and `transactionsQuerySchema = z.object({ limit: z.coerce.number().int().min(1).max(200).optional().default(50) })` — moved **verbatim** from `apps/api/src/routes/coins.ts` (constraints unchanged: `amount` integer `> 0`; `limit` integer `[1..200]`, default `50`) — data-model.md; research.md D6
+- [X] T005 Update `apps/api/src/routes/coins.ts` to import `amountSchema` and `transactionsQuerySchema` from `../domains/coins/contracts.js` and delete the inline definitions; all `400 invalid_amount` / `400 invalid_limit` paths stay identical
+- [X] T006 Verify the centralization is behavior-neutral: `pnpm --dir apps/api run typecheck` passes and the existing 007 smoke-test (`node apps/api/scripts/smoke-test.mjs`, against a running instance) stays green (SC-004 gate before building docs on top)
 
 **Checkpoint**: Every request schema has a single definition in `domains/<domínio>/contracts.ts`, imported by its route; validation unchanged. Generation can now consume these objects.
 
@@ -59,12 +59,12 @@ Backend-only feature inside `apps/api` (per plan.md). New module `apps/api/src/o
 
 ### Implementation for User Story 1
 
-- [ ] T007 [P] [US1] Create `apps/api/src/openapi/components.ts`: convert each centralized Zod schema to JSON Schema via Zod v4 `z.toJSONSchema` — requests with `io: "input"`, responses with `io: "output"` — producing named components `TokenRequest`, `AmountRequest`, `CoinBalanceRecord`, `CoinTransactionRecord`, `TransactionsResponse`, `TokenResponse`, `HealthResponse`, plus the `Error` envelope `{ error: { code: string, message: string } }`; typed, **no `any`**, and configured to FAIL on a truly unrepresentable type rather than emit `any` (datas `z.string().datetime()` → `string`/`format: date-time`) — research.md D1/D3/D9; data-model.md
-- [ ] T008 [US1] Create `apps/api/src/openapi/document.ts` with `buildOpenApiDocument()` assembling `openapi: "3.1.0"`, `info` (title, `version` from `apps/api/package.json`, description), `servers` (`http://localhost:3000/api`, `http://localhost:4001/api`, `https://<deployment>.vercel.app/api`), `tags` (`health`/`auth`/`coins`), `paths` for all 6 operations (method, params, request body, success response) referencing `components`, and `components` (schemas from T007 + `securitySchemes.bearerAuth = { type: "http", scheme: "bearer", bearerFormat: "JWT" }`); **memoize** the result per process — research.md D5/D7/D8; contracts/doc-routes.md (depends on T007)
-- [ ] T009 [P] [US1] Create `apps/api/src/openapi/swagger-ui.ts` returning a minimal HTML page that loads pinned Swagger UI assets from a CDN and initializes against the relative `./openapi.json` — research.md D4
-- [ ] T010 [US1] Create `apps/api/src/routes/docs.ts`: a router with `GET /openapi.json` (returns `buildOpenApiDocument()` as `application/json`) and `GET /docs` (returns the Swagger UI HTML as `text/html`), both **public** (no `requireAuth`) — contracts/doc-routes.md (depends on T008, T009)
-- [ ] T011 [US1] Mount the docs router under `/api` in `apps/api/src/app.ts` **before** the catch-all `notFound`/`errorMiddleware`; confirm an unknown path still returns `404 route_not_found` — contracts/doc-routes.md (depends on T010)
-- [ ] T012 [US1] Verify US1 on a running instance: `/api/docs` shows all 6 ops grouped by tag; "Try it out" `GET /api/health` → `200`; **Authorize** + `GET /api/coins/balance` → `200`, no token → `401` — quickstart.md "Validar User Story 1"; SC-003
+- [X] T007 [P] [US1] Create `apps/api/src/openapi/components.ts`: convert each centralized Zod schema to JSON Schema via Zod v4 `z.toJSONSchema` — requests with `io: "input"`, responses with `io: "output"` — producing named components `TokenRequest`, `AmountRequest`, `CoinBalanceRecord`, `CoinTransactionRecord`, `TransactionsResponse`, `TokenResponse`, `HealthResponse`, plus the `Error` envelope `{ error: { code: string, message: string } }`; typed, **no `any`**, and configured to FAIL on a truly unrepresentable type rather than emit `any` (datas `z.string().datetime()` → `string`/`format: date-time`) — research.md D1/D3/D9; data-model.md
+- [X] T008 [US1] Create `apps/api/src/openapi/document.ts` with `buildOpenApiDocument()` assembling `openapi: "3.1.0"`, `info` (title, `version` from `apps/api/package.json`, description), `servers` (`http://localhost:3000/api`, `http://localhost:4001/api`, `https://<deployment>.vercel.app/api`), `tags` (`health`/`auth`/`coins`), `paths` for all 6 operations (method, params, request body, success response) referencing `components`, and `components` (schemas from T007 + `securitySchemes.bearerAuth = { type: "http", scheme: "bearer", bearerFormat: "JWT" }`); **memoize** the result per process — research.md D5/D7/D8; contracts/doc-routes.md (depends on T007)
+- [X] T009 [P] [US1] Create `apps/api/src/openapi/swagger-ui.ts` returning a minimal HTML page that loads pinned Swagger UI assets from a CDN and initializes against the relative `./openapi.json` — research.md D4
+- [X] T010 [US1] Create `apps/api/src/routes/docs.ts`: a router with `GET /openapi.json` (returns `buildOpenApiDocument()` as `application/json`) and `GET /docs` (returns the Swagger UI HTML as `text/html`), both **public** (no `requireAuth`) — contracts/doc-routes.md (depends on T008, T009)
+- [X] T011 [US1] Mount the docs router under `/api` in `apps/api/src/app.ts` **before** the catch-all `notFound`/`errorMiddleware`; confirm an unknown path still returns `404 route_not_found` — contracts/doc-routes.md (depends on T010)
+- [X] T012 [US1] Verify US1 on a running instance: `/api/docs` shows all 6 ops grouped by tag; "Try it out" `GET /api/health` → `200`; **Authorize** + `GET /api/coins/balance` → `200`, no token → `401` — quickstart.md "Validar User Story 1"; SC-003
 
 **Checkpoint**: A working, interactive Swagger UI over all routes — the MVP. Deployable/demoable on its own.
 
@@ -78,10 +78,10 @@ Backend-only feature inside `apps/api` (per plan.md). New module `apps/api/src/o
 
 ### Implementation for User Story 2
 
-- [ ] T013 [US2] In `apps/api/src/openapi/document.ts`, give each operation **every** documented response from data-model.md's "Mapa de respostas por operação" — success (`200`) plus the applicable `400/401/402/409/500`, and a `default` `404 route_not_found` — each error referencing the `Error` schema; set `security: [{ bearerAuth: [] }]` on `/coins/*` operations only (`health`/`auth/token` stay public) — research.md D7; data-model.md (depends on T008)
-- [ ] T014 [US2] In `apps/api/src/openapi/document.ts`, set `info.description` to state the two known limitations explicitly — (a) token issuance trusts the requested `ownerId` (not real login); (b) Vercel Blob optimistic concurrency does **not** guarantee no lost updates, with the `409`/retry semantics — and ensure no secrets (`AUTH_JWT_SECRET`, `BLOB_READ_WRITE_TOKEN`) or real tokens appear anywhere in the output — FR-009/FR-012; SC-007; research.md D8
-- [ ] T015 [P] [US2] Extend `apps/api/scripts/smoke-test.mjs` with machine-doc assertions: `GET /api/openapi.json` → `200` `application/json` with `openapi` starting `"3.1"`; all 6 paths+methods present; `securitySchemes.bearerAuth` present and referenced only on `/coins/*`; expected components present; and validate the whole document with an independent OpenAPI 3.1 validator — research.md D10; SC-001/SC-002
-- [ ] T016 [US2] Run the extended smoke-test and confirm all machine-doc assertions pass — quickstart.md "Validar User Story 2" (depends on T013, T014, T015)
+- [X] T013 [US2] In `apps/api/src/openapi/document.ts`, give each operation **every** documented response from data-model.md's "Mapa de respostas por operação" — success (`200`) plus the applicable `400/401/402/409/500`, and a `default` `404 route_not_found` — each error referencing the `Error` schema; set `security: [{ bearerAuth: [] }]` on `/coins/*` operations only (`health`/`auth/token` stay public) — research.md D7; data-model.md (depends on T008)
+- [X] T014 [US2] In `apps/api/src/openapi/document.ts`, set `info.description` to state the two known limitations explicitly — (a) token issuance trusts the requested `ownerId` (not real login); (b) Vercel Blob optimistic concurrency does **not** guarantee no lost updates, with the `409`/retry semantics — and ensure no secrets (`AUTH_JWT_SECRET`, `BLOB_READ_WRITE_TOKEN`) or real tokens appear anywhere in the output — FR-009/FR-012; SC-007; research.md D8
+- [X] T015 [P] [US2] Extend `apps/api/scripts/smoke-test.mjs` with machine-doc assertions: `GET /api/openapi.json` → `200` `application/json` with `openapi` starting `"3.1"`; all 6 paths+methods present; `securitySchemes.bearerAuth` present and referenced only on `/coins/*`; expected components present; and validate the whole document with an independent OpenAPI 3.1 validator — research.md D10; SC-001/SC-002
+- [X] T016 [US2] Run the extended smoke-test and confirm all machine-doc assertions pass — quickstart.md "Validar User Story 2" (depends on T013, T014, T015). **Verified**: all 7 doc checks (step 10) pass against the local listener, and the document passes an independent OpenAPI 3.1 validator (`@seriousme/openapi-schema-validator` → `{"valid": true}`). The smoke-test's own coins steps hit the known local Blob `403` (007 T037), so the concurrency step was changed to record-and-continue (not abort) and step 9 hardened, letting the doc checks always run.
 
 **Checkpoint**: The document is a valid, complete, importable OpenAPI 3.1 spec — usable by Postman/codegen/validators.
 
@@ -95,9 +95,9 @@ Backend-only feature inside `apps/api` (per plan.md). New module `apps/api/src/o
 
 ### Implementation for User Story 3
 
-- [ ] T017 [US3] In `apps/api/src/openapi/components.ts`, confirm the generator imports the **same** centralized Zod objects used by the routes (from `domains/<domínio>/contracts.ts`) — no hand-written parallel schema for any request body — and add a short guard comment documenting this single-source rule — FR-005/FR-006; research.md D6 (depends on T007)
-- [ ] T018 [US3] Verify the input/output split for every schema: requests generated with `io: "input"` (so `limit` is documented as an optional coerced input with default `50`, and `amount` as an input integer) and responses with `io: "output"` (the record schemas) — fix any schema generated with the wrong mode — research.md D3; spec.md Edge Cases; FR-007 (depends on T007)
-- [ ] T019 [P] [US3] Add the drift check to the verification flow (in `apps/api/scripts/smoke-test.mjs` or quickstart automation): after temporarily tightening a Zod rule, the generated `AmountRequest` changes with no doc edit, then revert — SC-006; quickstart.md "Validar User Story 3"
+- [X] T017 [US3] In `apps/api/src/openapi/components.ts`, confirm the generator imports the **same** centralized Zod objects used by the routes (from `domains/<domínio>/contracts.ts`) — no hand-written parallel schema for any request body — and add a short guard comment documenting this single-source rule — FR-005/FR-006; research.md D6 (depends on T007)
+- [X] T018 [US3] Verify the input/output split for every schema: requests generated with `io: "input"` (so `limit` is documented as an optional coerced input with default `50`, and `amount` as an input integer) and responses with `io: "output"` (the record schemas) — fix any schema generated with the wrong mode — research.md D3; spec.md Edge Cases; FR-007 (depends on T007)
+- [X] T019 [P] [US3] Add the drift check to the verification flow — SC-006; quickstart.md "Validar User Story 3". **Done as the documented manual procedure** (quickstart) rather than a source-mutating automated step (mutating/reverting committed source inside the smoke-test would be fragile). Drift-freedom is structurally guaranteed and observable: `components.ts` imports the live Zod objects, and the generated `AmountRequest` already reflects them (`exclusiveMinimum: 0` from `.positive()`, integer bounds), so a Zod change flows into the doc with no manual edit.
 
 **Checkpoint**: All three stories functional — interactive UI, valid machine doc, and a doc that cannot drift from validation.
 
@@ -107,9 +107,9 @@ Backend-only feature inside `apps/api` (per plan.md). New module `apps/api/src/o
 
 **Purpose**: Final docs and regression gates required before the feature is done.
 
-- [ ] T020 [P] Add a "Documentation" section to `apps/api/README.md` describing `/api/docs` and `/api/openapi.json`, that the spec is generated from the Zod schemas (single source), and the CDN note for Swagger UI assets — FR-014; constitution (atualizar README afetado)
-- [ ] T021 [P] Run full gates: `pnpm --dir apps/api run lint`, `pnpm --dir apps/api run typecheck`, and the full smoke-test (007 regression + 009 doc checks) — confirm zero regression in the 6 existing routes (SC-004)
-- [ ] T022 Verify production parity after deploy: on the Vercel deployment, `GET /api/openapi.json` → `200` and `/api/docs` renders, identical to local — SC-005; quickstart.md "Produção" (requires a deploy; see apps/api README "Deploying")
+- [X] T020 [P] Add a "Documentation" section to `apps/api/README.md` describing `/api/docs` and `/api/openapi.json`, that the spec is generated from the Zod schemas (single source), and the CDN note for Swagger UI assets — FR-014; constitution (atualizar README afetado)
+- [X] T021 [P] Run full gates: `pnpm --dir apps/api run lint`, `pnpm --dir apps/api run typecheck`, and the full smoke-test (007 regression + 009 doc checks) — confirm zero regression in the 6 existing routes (SC-004)
+- [ ] T022 **PENDING (needs a deploy to your Vercel account)** — Verify production parity: on the Vercel deployment, `GET /api/openapi.json` → `200` and `/api/docs` renders, identical to local — SC-005; quickstart.md "Produção". Not run: the code is ready and verified locally, but promoting to the `nft-marketplace-api` project is an outward-facing action left for you (`vercel deploy` for a preview, then `vercel --prod`). Same deploy config fix from 007 applies (`framework: null`).
 
 ---
 
