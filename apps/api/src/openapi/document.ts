@@ -84,6 +84,11 @@ function assemble(): OpenApiDocument {
       { name: "health", description: "Verificação de saúde da função e do banco." },
       { name: "auth", description: "Emissão de token (confia no ownerId — ver descrição da API)." },
       { name: "coins", description: "Saldo e histórico de moedas — exige Bearer token." },
+      {
+        name: "profile",
+        description:
+          "Perfil do colecionador (nome de exibição, bio, ENS, apelido da carteira e foto) — exige Bearer token de dono; token de admin recebe `403`.",
+      },
     ],
     paths: {
       "/health": {
@@ -181,6 +186,41 @@ function assemble(): OpenApiDocument {
             "200": okResponse("Lista de transações.", "TransactionsResponse"),
             "400": errorResponse("`limit` inválido (`invalid_limit`)."),
             "401": errorResponse("Token ausente, expirado ou inválido."),
+            default: defaultError,
+          },
+        },
+      },
+      "/profile": {
+        get: {
+          tags: ["profile"],
+          summary: "Perfil do owner do token.",
+          description:
+            "Um owner que nunca salvou o perfil recebe `200` com valores vazios, `ensTld: \".eth\"` e `updatedAt: null` (nunca `404`). `avatarVersion` é o instante da última troca de foto (ou `null`): o cliente guarda a imagem em cache por essa versão.",
+          operationId: "getProfile",
+          security: secured,
+          responses: {
+            "200": okResponse("Perfil atual.", "ProfileResponse"),
+            "401": errorResponse("Token ausente, expirado ou inválido."),
+            "403": errorResponse("Token de admin em rota de dono (`wrong_token_type`)."),
+            default: defaultError,
+          },
+        },
+        put: {
+          tags: ["profile"],
+          summary: "Substitui os cinco campos de texto do perfil (cria no primeiro uso).",
+          description:
+            "Substituição integral e idempotente: o mesmo corpo repetido deixa o mesmo estado. O último salvamento vence. O dono vem **só** do token; um `ownerId` no corpo é ignorado. Todos os campos inválidos voltam juntos em `error.fields`, e nada é gravado.",
+          operationId: "saveProfile",
+          security: secured,
+          requestBody: jsonBody("SaveProfileRequest"),
+          responses: {
+            "200": okResponse("Perfil salvo.", "ProfileResponse"),
+            "400": errorResponse(
+              "`validation_error` com `fields` por campo: `displayName` → `too_short` | `too_long`; `bio` → `too_long`; `ensName` → `invalid_format`; `ensTld` → `invalid`; `walletNickname` → `too_long`; campo ausente ou de tipo errado → `invalid`. Corpo que não é JSON: `invalid_json`.",
+            ),
+            "401": errorResponse("Token ausente, expirado ou inválido."),
+            "403": errorResponse("Token de admin em rota de dono (`wrong_token_type`)."),
+            "500": errorResponse("Falha no banco; nada foi aplicado (a instrução é atômica)."),
             default: defaultError,
           },
         },

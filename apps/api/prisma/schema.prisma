@@ -55,3 +55,29 @@ model Admin {
 
   @@map("admins")
 }
+
+/// Collector profile (specs/014-user-profile). One row per owner; no row means "never saved". Written by a single
+/// `INSERT ... ON CONFLICT` (the Neon HTTP adapter has no transactions), so `updatedAt` is set in that statement.
+model Profile {
+  ownerId        String   @id @map("owner_id")
+  displayName    String   @map("display_name")
+  bio            String   @default("")
+  ensName        String   @default("") @map("ens_name")
+  ensTld         String   @default(".eth") @map("ens_tld")
+  walletNickname String   @default("") @map("wallet_nickname")
+  updatedAt      DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
+
+  @@map("profiles")
+}
+
+/// Profile photo bytes, kept apart from `profiles` so reading the profile never loads the image. No FK to
+/// `profiles`: a photo can exist before the first profile save. `updatedAt` is the `avatarVersion` of the profile.
+model ProfileAvatar {
+  ownerId     String   @id @map("owner_id")
+  contentType String   @map("content_type")
+  data        Bytes
+  byteSize    Int      @map("byte_size")
+  updatedAt   DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
+
+  @@map("profile_avatars")
+}

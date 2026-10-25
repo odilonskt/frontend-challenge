@@ -7,6 +7,7 @@ import {
   idempotencyKeySchema,
   transactionsQuerySchema,
 } from "../domains/coins/contracts.js"
+import { profileResponseSchema, saveProfileSchema } from "../domains/profile/contracts.js"
 
 /** A JSON Schema fragment used inside the OpenAPI document. */
 export type JsonSchema = Record<string, unknown>
@@ -37,6 +38,8 @@ const TokenRequest = toJsonSchema(tokenRequestSchema, "input")
 const AmountRequest = toJsonSchema(amountSchema, "input")
 const CoinBalanceRecord = toJsonSchema(coinBalanceRecordSchema, "output")
 const CoinTransactionRecord = toJsonSchema(coinTransactionRecordSchema, "output")
+const SaveProfileRequest = toJsonSchema(saveProfileSchema, "input")
+const ProfileResponse = toJsonSchema(profileResponseSchema, "output")
 
 // --- Response envelopes assembled by hand (no Zod source today) ---------------
 // They reference the Zod-derived records above by $ref so the record shapes stay
@@ -77,6 +80,12 @@ const Error_: JsonSchema = {
       properties: {
         code: { type: "string" },
         message: { type: "string" },
+        fields: {
+          type: "object",
+          description:
+            "Only on `validation_error` (`400`): the problem code of every invalid field, e.g. `{ \"bio\": \"too_long\" }`.",
+          additionalProperties: { type: "string" },
+        },
       },
       required: ["code", "message"],
       additionalProperties: false,
@@ -94,6 +103,8 @@ export const componentSchemas: Record<string, JsonSchema> = {
   CoinBalanceRecord,
   CoinTransactionRecord,
   TransactionsResponse,
+  SaveProfileRequest,
+  ProfileResponse,
   HealthResponse,
   Error: Error_,
 }
