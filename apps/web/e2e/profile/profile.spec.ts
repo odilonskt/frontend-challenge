@@ -1,5 +1,14 @@
 import { expect, test, type Page } from '@playwright/test'
-import { apiGet, hasNoHorizontalScroll, runAxe, SESSION_KEY, signIn, VIEWPORTS } from '../design-system/helpers'
+import {
+  apiGet,
+  createOrderViaApi,
+  hasNoHorizontalScroll,
+  runAxe,
+  selectScenario,
+  SESSION_KEY,
+  signIn,
+  VIEWPORTS,
+} from '../design-system/helpers'
 
 // specs/014-user-profile: the collector profile (name, bio, ENS, wallet nickname, photo) lives in the real
 // service (answered by the MSW profile mock here), apart from the account (username, e-mail, password).
@@ -438,6 +447,187 @@ test('saving the text keeps the photo and saving the photo keeps the text', asyn
   await expect(avatarImage(page)).toBeVisible()
 })
 
+// --- First access, failures and repeated saves (US3) ---------------------------------------------------------
+
+const LOAD_ERROR = 'Não foi possível carregar o perfil.'
+const SAVE_ERROR = 'Não foi possível salvar o perfil. Tente novamente.'
+// The profile query retries a transient failure twice (1 s, then 2 s) before the error shows.
+const AFTER_RETRIES = { timeout: 15_000 }
+
+/** Reopens the page with the profile service down (the scenario is kept in the browser's storage). */
+async function reopenWithProfileDown(page: Page) {
+  await selectScenario(page, 'profile-unavailable')
+  await page.reload()
+}
+
+test('a collector who never saved a profile gets the form with the account name, and the first save creates it', async ({ page }) => {
+  await signIn(page)
+  const profile = profileSection(page)
+  await expect(profile.getByRole('textbox', { name: 'Nome de exibição' })).toHaveValue('Teste Design')
+  for (const name of ['Bio', 'Nome ENS', 'Apelido da carteira']) {
+    await expect(profile.getByRole('textbox', { name })).toHaveValue('')
+  }
+  await expect(profile.getByText(/^Última alteração:/), 'nothing was saved yet').toHaveCount(0)
+
+  await saveProfile(page)
+  await expect(profile.getByText('Alterações salvas.')).toBeVisible()
+  await expect(profile.getByText(/^Última alteração:/)).toBeVisible()
+
+  const stored = (await backendCall(page, 'GET', '/profile')).json
+  expect(stored?.displayName).toBe('Teste Design')
+  expect(stored?.updatedAt).not.toBeNull()
+})
+
+test('with the service down on opening, the profile shows a clear message with "Tentar novamente" and no invented form', async ({ page }) => {
+  await signIn(page)
+  await reopenWithProfileDown(page)
+  const profile = profileSection(page)
+
+  await expect(profile.getByRole('alert').getByText(LOAD_ERROR)).toBeVisible(AFTER_RETRIES)
+  await expect(profile.getByRole('button', { name: 'Tentar novamente' })).toBeVisible()
+  await expect(profile.getByRole('textbox', { name: 'Nome de exibição' }), 'no form with made-up data').toHaveCount(0)
+  // The account section keeps working while the profile service is down (FR-016).
+  await expect(accountSection(page).getByRole('textbox', { name: 'E-mail' })).toBeVisible()
+
+  await selectScenario(page, 'default')
+  await profile.getByRole('button', { name: 'Tentar novamente' }).click()
+  await expect(profile.getByRole('textbox', { name: 'Nome de exibição' })).toHaveValue('Teste Design')
+})
+
+test('with the service down while saving, the failure is shown, what was typed stays, and saving again works', async ({ page }) => {
+  await signIn(page)
+  await fillProfile(page, { displayName: 'Maria Digitada', bio: 'texto que não pode se perder' })
+  await selectScenario(page, 'profile-unavailable')
+  await saveProfile(page)
+
+  const profile = profileSection(page)
+  await expect(profile.getByText(SAVE_ERROR)).toBeVisible()
+  await expect(profile.getByRole('textbox', { name: 'Nome de exibição' })).toHaveValue('Maria Digitada')
+  await expect(profile.getByRole('textbox', { name: 'Bio' })).toHaveValue('texto que não pode se perder')
+
+  await selectScenario(page, 'default')
+  await saveProfile(page)
+  await expect(profile.getByText('Alterações salvas.')).toBeVisible()
+  const stored = (await backendCall(page, 'GET', '/profile')).json
+  expect(stored?.displayName).toBe('Maria Digitada')
+})
+
+test('with the profile service down, the account still saves, and a failed profile save never changes the account', async ({ page }) => {
+  await signIn(page)
+  const before = await apiGet<{ user: { email: string } }>(page, '/session')
+  await reopenWithProfileDown(page)
+  await expect(profileSection(page).getByText(LOAD_ERROR)).toBeVisible(AFTER_RETRIES)
+
+  const account = accountSection(page)
+  const email = `conta_${unique()}@nft.dev`
+  await account.getByRole('textbox', { name: 'E-mail' }).fill(email)
+  await account.getByRole('button', { name: 'Salvar dados da conta' }).click()
+  await expect(account.getByText('Alterações salvas.')).toBeVisible()
+  const after = await apiGet<{ user: { email: string } }>(page, '/session')
+  expect(after.user.email).toBe(email)
+  expect(before.user.email).not.toBe(email)
+
+  // The other way round: the profile fails, and the account stays as the collector left it.
+  await selectScenario(page, 'default')
+  await page.reload()
+  await fillProfile(page, { displayName: 'Nao Salva' })
+  await selectScenario(page, 'profile-unavailable')
+  await saveProfile(page)
+  await expect(profileSection(page).getByText(SAVE_ERROR)).toBeVisible()
+  const unchanged = await apiGet<{ user: { email: string } }>(page, '/session')
+  expect(unchanged.user.email).toBe(email)
+})
+
+test('with the profile service down the navigation bar keeps the account name and the default icon, without errors', async ({ page }) => {
+  await signIn(page)
+  await reopenWithProfileDown(page)
+  await expect(profileSection(page).getByText(LOAD_ERROR)).toBeVisible(AFTER_RETRIES)
+
+  const bar = page.getByRole('banner')
+  await expect(bar.getByRole('link', { name: 'Conta de Teste Design' })).toBeVisible()
+  await expect(navbarPhoto(page)).toHaveCount(0)
+  await expect(bar.getByRole('alert')).toHaveCount(0)
+  // Navigation is not blocked by it.
+  await bar.getByRole('link', { name: 'Mercado' }).click()
+  await expect(page).toHaveURL(/\/market/)
+})
+
+test('clicking "Salvar perfil" many times leaves the same profile as saving once', async ({ page }) => {
+  await signIn(page)
+  const profile = profileSection(page)
+  await fillProfile(page, { displayName: 'Salva Varias Vezes', bio: 'uma só', ensName: 'varias', ensTld: '.art' })
+  await profile.getByRole('button', { name: /^Salv/ }).click({ clickCount: 5, delay: 0 })
+  await expect(profile.getByText('Alterações salvas.')).toBeVisible()
+
+  const stored = (await backendCall(page, 'GET', '/profile')).json
+  expect(stored).toMatchObject({ displayName: 'Salva Varias Vezes', bio: 'uma só', ensName: 'varias', ensTld: '.art', walletNickname: '' })
+  await page.reload()
+  await expect(profile.getByRole('textbox', { name: 'Nome de exibição' })).toHaveValue('Salva Varias Vezes')
+})
+
+test('when the same account saves twice, the last save wins and the page shows when it happened', async ({ page }) => {
+  await signIn(page)
+  const profile = profileSection(page)
+  await fillProfile(page, { displayName: 'Primeiro Valor' })
+  await saveProfile(page)
+  await expect(profile.getByText('Alterações salvas.')).toBeVisible()
+
+  // Another session of the same account saves a different value (the shared state of this browser stands in for it).
+  const other = await backendCall(page, 'PUT', '/profile', {
+    displayName: 'Segundo Valor',
+    bio: 'da outra sessão',
+    ensName: '',
+    ensTld: '.eth',
+    walletNickname: '',
+  })
+  expect(other.status).toBe(200)
+
+  await page.reload()
+  await expect(profile.getByRole('textbox', { name: 'Nome de exibição' })).toHaveValue('Segundo Valor')
+  await expect(profile.getByRole('textbox', { name: 'Bio' })).toHaveValue('da outra sessão')
+  await expect(profile.getByText(/^Última alteração:/)).toBeVisible()
+  expect((await backendCall(page, 'GET', '/profile')).json?.updatedAt).toBe(other.json?.updatedAt)
+})
+
+test('an expired site session sends the collector to sign in and nothing is sent to the profile service', async ({ page }) => {
+  await signIn(page)
+  const profileWrites: string[] = []
+  page.on('request', (request) => {
+    if (request.method() === 'PUT' && new URL(request.url()).pathname === '/backend/profile') profileWrites.push(request.url())
+  })
+
+  await fillProfile(page, { displayName: 'Nao Deve Salvar' })
+  await page.evaluate(() => window.__nftMock?.expireSessions())
+  await saveProfile(page)
+
+  await expect(page).toHaveURL(/\/login\?redirect=/)
+  expect(profileWrites, 'no write reached the profile service').toEqual([])
+
+  // After signing in again the collector is back on the profile.
+  const id = unique()
+  await page.getByRole('tab', { name: 'Criar conta' }).click()
+  await page.getByLabel('Nome de usuário').fill(`user_${id}`)
+  await page.getByLabel('E-mail').fill(`${id}@nft.dev`)
+  await page.getByLabel(/^Senha/).fill('Senha1234')
+  await page.getByLabel('Confirmar senha').fill('Senha1234')
+  await page.getByRole('button', { name: 'Criar conta' }).click()
+  await expect(page).toHaveURL('/account/profile')
+})
+
+test('changing the display name never rewrites orders or receipts already issued', async ({ page }) => {
+  await signIn(page)
+  const orderId = await createOrderViaApi(page)
+  const before = await apiGet<{ collector: { fullName: string } }>(page, `/orders/${orderId}`)
+  expect(before.collector.fullName).toBe('Teste E2E')
+
+  await fillProfile(page, { displayName: 'Nome Novo Exibido' })
+  await saveProfile(page)
+  await expect(profileSection(page).getByText('Alterações salvas.')).toBeVisible()
+
+  const after = await apiGet<{ collector: { fullName: string } }>(page, `/orders/${orderId}`)
+  expect(after.collector.fullName, 'the receipt keeps what was recorded at checkout').toBe('Teste E2E')
+})
+
 test('the profile page has no critical accessibility violations', async ({ page }) => {
   await signIn(page)
   await expect(profileSection(page).getByRole('textbox', { name: 'Nome de exibição' })).toBeVisible()
@@ -468,6 +658,18 @@ for (const [name, viewport] of Object.entries(VIEWPORTS)) {
       expect(await hasNoHorizontalScroll(page)).toBe(true)
       expect(await runAxe(page)).toEqual([])
       await expect(page).toHaveScreenshot(`profile-photo-${viewport.width}.png`, {
+        fullPage: true,
+        mask: [accountSection(page).getByRole('textbox')],
+      })
+    })
+
+    test('the profile page with the service down renders accessibly and matches its baseline', async ({ page }) => {
+      await signIn(page)
+      await reopenWithProfileDown(page)
+      await expect(profileSection(page).getByText(LOAD_ERROR)).toBeVisible(AFTER_RETRIES)
+      expect(await hasNoHorizontalScroll(page)).toBe(true)
+      expect(await runAxe(page)).toEqual([])
+      await expect(page).toHaveScreenshot(`profile-error-${viewport.width}.png`, {
         fullPage: true,
         mask: [accountSection(page).getByRole('textbox')],
       })

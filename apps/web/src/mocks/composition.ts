@@ -112,7 +112,9 @@ export const handlers = [
   // Collector profile of the real service (specs/014-user-profile): same switch. The token comes from the same
   // issuer as the coins mock (it is the same service), and the owner is read from it only.
   ...(env.enableBackendMocks
-    ? profileBackendHandlers(BACKEND, profileBackend, (request) => ledger.authenticate(request.headers.get('authorization')))
+    ? profileBackendHandlers(BACKEND, profileBackend, (request) => ledger.authenticate(request.headers.get('authorization')), {
+        unavailable: () => scenarioRuntime.current.profileUnavailable === true,
+      })
     : []),
   // Admin of the real coins service (specs/012-coins-admin): same switch, own credential and token.
   ...(env.enableBackendMocks
