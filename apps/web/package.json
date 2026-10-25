@@ -16,7 +16,9 @@
     "test:e2e:update": "playwright test --update-snapshots",
     "test:e2e:report": "playwright show-report",
     "lighthouse": "node scripts/lighthouse.mjs",
-    "generate:art": "node scripts/generate-art.mjs"
+    "generate:art": "node scripts/generate-art.mjs",
+    "generate:fauna-art": "node scripts/generate-fauna-art.mjs",
+    "fauna:contact-sheet": "node scripts/fauna-contact-sheet.mjs"
   },
   "dependencies": {
     "@fontsource/space-mono": "^5.3.0",

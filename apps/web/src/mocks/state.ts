@@ -90,7 +90,22 @@ export function createInitialState(): MockState {
 
 const SCHEMA_VERSION = 1
 
+/**
+ * The catalog fixtures are only the INITIAL state: a browser that already saved its state keeps the NFTs it had and
+ * would never receive a collection added later (specs/016-brazilian-fauna-nfts, research D2). This adds, by id, the
+ * fixture NFTs a saved state lacks, and touches nothing else: an NFT that is already there keeps its stock, its
+ * editions and its flags, and users, sessions, carts, wallets, orders and favorites are untouched. Idempotent. It is
+ * done here and not by bumping `SCHEMA_VERSION`, which would discard every demo user's cart, orders and favorites.
+ * (Admin-created NFTs have random ids, so they never collide with the fixture ids.)
+ */
+export function addMissingCatalogNfts(state: MockState): MockState {
+  const known = new Set(state.nfts.map((nft) => nft.id))
+  const missing = buildNftFixtures().filter((nft) => !known.has(nft.id))
+  return missing.length === 0 ? state : { ...state, nfts: [...state.nfts, ...missing] }
+}
+
 export const store = new Store<MockState>(
   new LocalStoragePersistence<MockState>('nft-mock:state', SCHEMA_VERSION),
   createInitialState,
+  addMissingCatalogNfts,
 )

@@ -62,10 +62,20 @@ export class Store<TState> {
   private readonly persistence: StatePersistence<TState>
   private readonly createInitialState: () => TState
 
-  constructor(persistence: StatePersistence<TState>, createInitialState: () => TState) {
+  /**
+   * `migrate` (optional) is applied ONLY to a state loaded from storage, never to a fresh initial state. It lets a
+   * newer build add what a saved state lacks (for example, new catalog fixtures) without discarding the rest of it.
+   * It must be idempotent: the result is only written back on the next mutation, so it can run on several loads.
+   */
+  constructor(
+    persistence: StatePersistence<TState>,
+    createInitialState: () => TState,
+    migrate?: (loaded: TState) => TState,
+  ) {
     this.persistence = persistence
     this.createInitialState = createInitialState
-    this.state = persistence.load() ?? createInitialState()
+    const loaded = persistence.load()
+    this.state = loaded === null ? createInitialState() : migrate ? migrate(loaded) : loaded
   }
 
   read<T>(selector: (state: TState) => T): T {
