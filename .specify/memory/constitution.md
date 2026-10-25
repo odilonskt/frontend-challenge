@@ -1,6 +1,6 @@
 <!--
 Sync Impact Report
-- Version change: 1.1.0 → 1.2.0 → 1.2.1 → 1.3.0 → 1.4.0 → 1.5.0 → 1.6.0 → 1.7.0 → 1.8.0
+- Version change: 1.1.0 → 1.2.0 → 1.2.1 → 1.3.0 → 1.4.0 → 1.5.0 → 1.6.0 → 1.7.0 → 1.8.0 → 1.9.0
 - Modified principles: nenhum (nenhum princípio existente foi removido ou redefinido de forma
   incompatível; a mudança abaixo é uma segunda exceção aditiva, escopada a um workspace novo
   `apps/api` + `apps/web`, sem alterar `server/`, a exceção de 1.1.0, nem o restante de `src/`)
@@ -39,9 +39,16 @@ Sync Impact Report
   web, porque pedidos e catálogo continuam no MSW. "Lista de interesse" é a página dos Favoritos. Pedido
   explícito do usuário (plano de 2026-10-24). MINOR: expansão material de escopo e da exceção de
   `apps/api`, sem remover nem redefinir princípio
+- 1.9.0: o Perfil do colecionador (nome de exibição, bio, nome ENS com domínio, apelido da carteira e foto)
+  passa a ter backend real em `apps/api`, por dono (Postgres/Prisma, `requireAuth`, nenhuma rota de
+  administrador). A foto é guardada como bytes no Postgres (PNG, JPEG ou WebP, até 1 MiB) e o tipo é
+  verificado pelo conteúdo. Nome de usuário, e-mail e senha continuam na conta simulada do site e
+  `apps/api` não os guarda. A limitação de identidade é a mesma dos demais domínios da conta. Pedido
+  explícito do usuário (spec 014). MINOR: expansão material da lista de domínios da conta, sem remover nem
+  redefinir princípio
 - Modified sections: "Restrições Técnicas e de Escopo" (itens "Fora de escopo", "Escopo ampliado (1.7.0)" e
-  "Segurança"; novo item "Escopo ampliado (1.8.0)"); "Exceção Pontual: Monorepo na Vercel..." (novo item
-  de domínios da conta e limitação de confiança)
+  "Segurança"; novos itens "Escopo ampliado (1.8.0)" e, nele, "Perfil" da 1.9.0); "Exceção Pontual: Monorepo
+  na Vercel..." (novo item de domínios da conta e limitação de confiança, agora com `profile`)
 - Templates/commands: nenhum alterado (leem a constituição em tempo de execução)
 - Removed sections: nenhum
 - Follow-up TODOs: atualizar `docs/CHALLENGE.md` (linha 48 ainda lista atividade, ofertas e downloads
@@ -149,6 +156,11 @@ auditado com Lighthouse (`pnpm lighthouse`).
     liquidação real.
   - **Suporte**: FAQ e chamados (abrir, ver e responder), guardados em `apps/api` por dono. A resposta do
     atendimento é feita por rota `/admin/*` com `requireAdmin`. O dono MUST NOT ler chamado de outro dono.
+  - **Perfil** (1.9.0): nome de exibição, bio, nome ENS com domínio, apelido da carteira e foto, guardados em
+    `apps/api` por dono. A foto é guardada como bytes no Postgres (PNG, JPEG ou WebP, até 1 MiB), e o tipo
+    MUST ser verificado pelo conteúdo, nunca pelo nome do arquivo. Nome de usuário, e-mail e senha continuam
+    na conta simulada do site, e `apps/api` MUST NOT guardá-los. A limitação de identidade é a mesma dos
+    demais domínios da conta.
 - Segurança: credenciais fictícias apenas (exceto o admin real de `apps/api`, regido pela exceção
   1.4.0); senhas MUST NOT ser armazenadas em claro; checkout, perfil, carteiras, favoritos, pedidos,
   atividade, ofertas, arquivos baixados e suporte exigem autenticação.
@@ -245,9 +257,11 @@ armazenamento.
   real ao produto — e essa limitação específica (emissão confia, uso subsequente não) MUST ficar
   documentada de forma explícita no README de `apps/api` e na spec da 007, nunca apresentada como
   proteção completa contra uso indevido de conta.
-- Domínios da conta (1.8.0): `apps/api` ganha os domínios `favorites`, `purchases`, `offers`, `activity`,
-  `downloads` e `support`, no mesmo Postgres/Prisma e com o mesmo padrão dos domínios existentes. As rotas
-  de dono ficam atrás de `requireAuth` e o `ownerId` MUST vir só do token verificado, nunca do corpo; as
+- Domínios da conta (1.8.0, ampliado na 1.9.0): `apps/api` ganha os domínios `favorites`, `purchases`,
+  `offers`, `activity`, `downloads`, `support` e `profile`, no mesmo Postgres/Prisma e com o mesmo padrão dos
+  domínios existentes. O `profile` tem rotas de dono atrás de `requireAuth` e **nenhuma** rota de
+  administrador. As rotas de dono ficam atrás de `requireAuth` e o `ownerId` MUST vir só do token
+  verificado, nunca do corpo; as
   rotas de decisão de ofertas e de resposta de chamados ficam em `/admin/*` com `requireAdmin`, e as
   escritas de admin que isto cria são limitadas a essas duas (o ajuste de saldo por admin segue fora de
   escopo). Valores em ETH MUST trafegar como string decimal. Mudanças de esquema MUST entrar por migração
@@ -277,4 +291,4 @@ expansão material; PATCH para esclarecimentos e correções de redação. Revis
 `/speckit-analyze` MUST verificar conformidade; regras de fronteira (Princípio I) são impostas
 automaticamente por `pnpm lint`. Orientação de uso diário: `docs/TEAMS.md` e `docs/CHALLENGE.md`.
 
-**Version**: 1.8.0 | **Ratified**: 2026-10-14 | **Last Amended**: 2026-10-24
+**Version**: 1.9.0 | **Ratified**: 2026-10-14 | **Last Amended**: 2026-10-25
