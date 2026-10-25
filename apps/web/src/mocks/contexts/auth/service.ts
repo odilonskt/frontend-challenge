@@ -1,4 +1,4 @@
-import type { LoginRequest, Session, SessionUser, SignupRequest } from '@/domains/auth'
+import type { LoginRequest, Session, SessionUser, SignupRequest, UpdateAccountRequest } from '@/domains/auth'
 import type { Clock } from '../../infra/store'
 import { hashPassword, verifyPassword } from '../../infra/password'
 import { randomHex, randomId } from '../../infra/random'
@@ -17,7 +17,6 @@ export const toSessionUser = (user: UserRecord): SessionUser => ({
   name: user.name,
   email: user.email,
   username: user.username,
-  avatarUrl: user.avatarUrl,
   role: user.role,
 })
 
@@ -55,11 +54,6 @@ export class AuthService {
       name: input.name.trim(),
       username: input.username,
       email: input.email.trim().toLowerCase(),
-      bio: '',
-      ensName: '',
-      ensTld: '.eth',
-      walletNickname: '',
-      avatarUrl: null,
       passwordSalt: salt,
       passwordHash: hash,
       updatedAt: new Date(this.clock.now()).toISOString(),
@@ -116,6 +110,50 @@ export class AuthService {
     const session = this.sessions.find(identity.token)
     if (!user || !session) throw errors.unauthenticated()
     return { token: session.token, user: toSessionUser(user), expiresAt: new Date(session.expiresAt).toISOString() }
+  }
+
+  /**
+   * The account's own data (the login identity): username and e-mail. The profile (name, bio, ENS, photo) is NOT
+   * here: it lives in the real service (`contexts/profile-backend`). The sign-up name is not editable.
+   */
+  updateAccount(userId: string, input: UpdateAccountRequest): SessionUser {
+    const fields = collect({ username: validateUsername(input.username), email: validateEmail(input.email) })
+    if (Object.keys(fields).length > 0) throw errors.validation(fields)
+
+    const byEmail = this.users.findByEmail(input.email)
+    const byUsername = this.users.findByUsername(input.username)
+    const conflicts = collect({
+      email: byEmail && byEmail.id !== userId ? 'Este e-mail já está em uso.' : null,
+      username: byUsername && byUsername.id !== userId ? 'Este nome de usuário já está em uso.' : null,
+    })
+    if (Object.keys(conflicts).length > 0) throw errors.conflict('Dados já utilizados por outra conta.', conflicts)
+
+    const updated = this.users.update(userId, {
+      username: input.username,
+      email: input.email.trim().toLowerCase(),
+      updatedAt: new Date(this.clock.now()).toISOString(),
+    })
+    if (!updated) throw errors.notFound('Usuário')
+    return toSessionUser(updated)
+  }
+
+  async changePassword(userId: string, currentPassword: string, newPassword: string) {
+    const user = this.users.findById(userId)
+    if (!user) throw errors.notFound('Usuário')
+    const strength = validatePassword(newPassword)
+    if (strength) throw errors.validation({ newPassword: strength })
+    if (!(await verifyPassword(currentPassword, user.passwordSalt, user.passwordHash))) {
+      throw errors.validation({ currentPassword: 'A senha atual está incorreta.' })
+    }
+    if (currentPassword === newPassword) {
+      throw errors.validation({ newPassword: 'A nova senha deve ser diferente da atual.' })
+    }
+    const { salt, hash } = await hashPassword(newPassword)
+    this.users.update(userId, {
+      passwordSalt: salt,
+      passwordHash: hash,
+      updatedAt: new Date(this.clock.now()).toISOString(),
+    })
   }
 
   expireAllSessions() {

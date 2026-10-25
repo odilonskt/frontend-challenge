@@ -20,8 +20,8 @@ import { FavoritesRepository, FavoritesService } from './contexts/favorites/serv
 import { favoritesHandlers } from './contexts/favorites/handlers'
 import { WalletRepository, WalletService } from './contexts/wallets/service'
 import { walletHandlers } from './contexts/wallets/handlers'
-import { ProfileService } from './contexts/profile/service'
-import { profileHandlers } from './contexts/profile/handlers'
+import { ProfileBackendService } from './contexts/profile-backend/service'
+import { profileBackendHandlers } from './contexts/profile-backend/handlers'
 import { OrderRepository, OrderService, type OrderPolicy } from './contexts/orders/service'
 import { orderHandlers } from './contexts/orders/handlers'
 import { ledgerHandlers } from './contexts/ledger/handlers'
@@ -56,7 +56,8 @@ const cartRepository = new CartRepository(store)
 const cart = new CartService(cartRepository, catalogRepository, clock)
 const favorites = new FavoritesService(new FavoritesRepository(store), catalogRepository)
 const wallets = new WalletService(new WalletRepository(store), clock, () => scenarioRuntime.current.walletRejects === true)
-const profile = new ProfileService(users, clock)
+// The collector's profile lives in the real service (`/backend`), not in the site's account: own state, own key.
+const profileBackend = new ProfileBackendService()
 const ledger = new LedgerService()
 const coinsAdmin = new CoinsAdminService()
 
@@ -99,7 +100,6 @@ export const handlers = [
   ...favoritesHandlers(API, auth, favorites),
   ...cartHandlers(API, auth, cart),
   ...walletHandlers(API, auth, wallets),
-  ...profileHandlers(API, auth, profile),
   ...orderHandlers(API, auth, orders, () => scenarioRuntime.current.orderResponseDelayMs ?? 0),
   // Only when backend mocks are on (dev, e2e). Production/preview turn them off so `/backend/*` reaches
   // the real apps/api instead of being answered here (specs/008-web-production-env, FR-005).
@@ -108,6 +108,11 @@ export const handlers = [
         unavailable: () => scenarioRuntime.current.ledgerUnavailable === true,
         loseFirstWriteResponse: () => scenarioRuntime.current.ledgerLoseFirstWriteResponse === true,
       })
+    : []),
+  // Collector profile of the real service (specs/014-user-profile): same switch. The token comes from the same
+  // issuer as the coins mock (it is the same service), and the owner is read from it only.
+  ...(env.enableBackendMocks
+    ? profileBackendHandlers(BACKEND, profileBackend, (request) => ledger.authenticate(request.headers.get('authorization')))
     : []),
   // Admin of the real coins service (specs/012-coins-admin): same switch, own credential and token.
   ...(env.enableBackendMocks
@@ -126,10 +131,13 @@ export const mockControls = {
   reset: () => {
     store.reset()
     ledger.reset()
+    profileBackend.reset()
     scenarioRuntime.restart()
   },
   realtime,
   settleAllOrders: () => orders.settleAllNow(),
+  /** Test-only: every site session expires now (the next request answers SESSION_EXPIRED), without waiting for the TTL. */
+  expireSessions: () => auth.expireAllSessions(),
   /** Test-only: promotes a user to admin without going through signup (which never can, by design). */
   setRole: (userId: string, role: 'collector' | 'admin') => users.update(userId, { role }),
 }
