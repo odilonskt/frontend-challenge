@@ -380,3 +380,66 @@ for (const [name, viewport] of Object.entries(VIEWPORTS)) {
     })
   })
 }
+
+// --- US3: knowing the creator of the collection -------------------------------------------------------------------
+
+/** The 8 creators before the collection (task T002): every one had 6 NFTs, 48 in all. */
+const OLD_CREATOR_IDS = [
+  'art_orbitian',
+  'art_moondancer',
+  'art_nebulakid',
+  'art_animakid',
+  'art_robotica',
+  'art_keepitreal',
+  'art_dishamodi',
+  'art_ghiblier',
+]
+
+interface CreatorSummary {
+  id: string
+  name: string
+  avatarUrl: string
+  nftCount: number
+}
+
+test('the creators list has 9 creators: Fauna Viva with 12 NFTs, and the 8 before it with the same 6 each', async ({ page }) => {
+  const creators = await api<CreatorSummary[]>(page, '/creators')
+  expect(creators).toHaveLength(9)
+  const byId = Object.fromEntries(creators.map((creator) => [creator.id, creator]))
+  expect(byId.art_faunaviva).toMatchObject({ name: 'Fauna Viva', avatarUrl: '/art/artist-9.svg', nftCount: 12 })
+  for (const id of OLD_CREATOR_IDS) expect(byId[id]?.nftCount, id).toBe(6)
+  expect(OLD_CREATOR_IDS.reduce((sum, id) => sum + (byId[id]?.nftCount ?? 0), 0), 'the old creators still own 48').toBe(48)
+
+  await page.goto('/creators')
+  const card = page.getByRole('link', { name: /Fauna Viva/ })
+  await expect(card).toBeVisible()
+  await expect(card).toContainText('12 NFTs')
+})
+
+test('the page of Fauna Viva lists the 12 animals, each leading to its own detail', async ({ page }) => {
+  await page.goto('/creators/art_faunaviva')
+  await expect(page.getByRole('heading', { level: 1, name: 'Fauna Viva' })).toBeVisible()
+  await expect(page.getByText('12 NFTs listados')).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'NFTs deste criador' })).toBeVisible()
+
+  for (const name of FAUNA_NAMES) await expect(page.getByText(name, { exact: true }).first(), name).toBeVisible()
+  const hrefs = await page.getByRole('main').getByRole('link').evaluateAll((links) => links.map((link) => link.getAttribute('href')))
+  for (const id of FAUNA_IDS) expect(hrefs, id).toContain(`/nft/${id}`)
+
+  await page.getByText('Onça-Pintada', { exact: true }).first().click()
+  await expect(page).toHaveURL(/\/nft\/nft_049$/)
+})
+
+for (const [name, viewport] of Object.entries(VIEWPORTS)) {
+  test.describe(`creators (${name}, ${viewport.width}px)`, () => {
+    test.use({ viewport })
+
+    test('the page of Fauna Viva has no horizontal scroll and no critical accessibility violations', async ({ page }) => {
+      await page.goto('/creators/art_faunaviva')
+      await expect(page.getByRole('heading', { level: 1, name: 'Fauna Viva' })).toBeVisible()
+      await expect(page.getByText('Onça-Pintada', { exact: true }).first()).toBeVisible()
+      expect(await hasNoHorizontalScroll(page)).toBe(true)
+      expect(await runAxe(page)).toEqual([])
+    })
+  })
+}

@@ -124,6 +124,25 @@ Fonte de verdade: `specs/001-design-system-standards` (`contracts/design-tokens.
 - **Regra de revisão**: cor, fonte, espaçamento ou componente fora do catálogo exige justificativa no PR; se aprovado,
   atualize o contrato e o catálogo.
 
+## Catálogo simulado e arte (`apps/web/src/mocks`)
+
+- O catálogo tem **60 NFTs**: 48 abstratos (`fixtures/nfts.ts`, arte provisória gerada por `pnpm generate:art`) e a coleção
+  **Fauna Brasileira**, 12 animais do criador "Fauna Viva" (`fixtures/fauna.ts`, specs/016-brazilian-fauna-nfts). Os 12 vêm
+  **depois** dos 48 e não usam o gerador pseudoaleatório deles, então o preço e o estoque dos 48 não mudam ao acrescentar
+  uma coleção. `fixtures/edition-templates.ts` guarda os três tipos de edição (Standard, Rare, Legendary) que os dois usam.
+- A arte da fauna é **desenhada por código**: `src/mocks/infra/fauna-art.mjs` (12 animais, 4 biomas, 3 vistas: cena, detalhe
+  do rosto e entardecer) e `pnpm generate:fauna-art` escreve `public/art/nft-049…060-{1,2,3}.svg` e `artist-9.svg`.
+  É determinístico (rodar duas vezes não gera diff). Para **ver** o resultado antes de aceitar uma mudança de desenho:
+  `pnpm fauna:contact-sheet` (aceita `--only=onca-pintada,capivara`); cada animal tem de ser reconhecível sem legenda.
+  `generate:art` e `generate:fauna-art` são independentes: um nunca sobrescreve os arquivos do outro.
+- O catálogo é **persistido no navegador** (`nft-mock:state`) e os fixtures são só o estado **inicial**. Para que quem já
+  abriu o site receba uma coleção nova, o `Store` aceita um passo `migrate` e `state.ts` usa `addMissingCatalogNfts`, que
+  acrescenta por id os NFTs de fixture que faltam, sem tocar no que já existe (nem subir `SCHEMA_VERSION`, o que
+  apagaria carrinhos, pedidos e favoritos de demonstração). Uma coleção futura só precisa entrar em `buildNftFixtures()`.
+- Só os NFTs `featured` alimentam os carrosséis "Em alta" e "Coleções" do Mercado e os "relacionados" do carrinho (o hero
+  da home é uma imagem fixa). Hoje são 4: `nft_001…003` e a Onça-Pintada. O cartão de coleção do Mercado conta só os
+  destaques da coleção ("1 NFTs" para todas): é um limite conhecido, fora do escopo da 016.
+
 ## Ambiente de produção
 
 - O `apps/web` é publicado como projeto Vercel próprio (`nft-marketplace-web`). Produção é uma **demonstração
