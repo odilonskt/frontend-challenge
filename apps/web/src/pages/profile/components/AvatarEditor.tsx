@@ -1,12 +1,17 @@
 import { useRef, useState, type ChangeEvent } from 'react'
+import {
+  AVATAR_MAX_BYTES,
+  AVATAR_TYPES,
+  PROFILE_MESSAGES,
+  profileFieldMessage,
+  useRemoveAvatar,
+  useUpdateAvatar,
+} from '@/domains/profile'
+import { BackendError } from '@/shared/api/backend-client'
 import { isApiError } from '@/shared/api/http'
 import { AvatarIcon } from '@/shared/icons'
 import { Avatar, AvatarFallback, AvatarImage } from '@/shared/ui/avatar'
 import { Button } from '@/shared/ui/button'
-import { useRemoveAvatar, useUpdateAvatar, type Profile } from '@/domains/profile'
-
-const ACCEPTED = ['image/png', 'image/jpeg', 'image/webp']
-const MAX_BYTES = 1024 * 1024
 
 const readAsDataUrl = (file: File) =>
   new Promise<string>((resolve, reject) => {
@@ -16,24 +21,46 @@ const readAsDataUrl = (file: File) =>
     reader.readAsDataURL(file)
   })
 
-export function AvatarEditor({ avatarUrl }: Pick<Profile, 'avatarUrl'>) {
+const isAcceptedType = (type: string) => (AVATAR_TYPES as readonly string[]).includes(type)
+
+/**
+ * The photo of the profile. It saves on its own and at once (no "save" button), apart from the text fields, so it
+ * sits outside the form: its buttons are `type="button"` and can never submit it.
+ */
+export function AvatarEditor({ avatarUrl }: { avatarUrl: string | null }) {
   const input = useRef<HTMLInputElement>(null)
   const [error, setError] = useState<string>()
   const update = useUpdateAvatar()
   const remove = useRemoveAvatar()
   const busy = update.isPending || remove.isPending
 
+  /** The service's per-field answer for the photo; an expired site session redirects to sign-in by itself. */
+  function messageFor(failure: unknown, fallback: string) {
+    if (isApiError(failure) && failure.isAuthError) return undefined
+    if (failure instanceof BackendError && failure.isValidation) {
+      return profileFieldMessage('avatar', failure.fields.avatar ?? '')
+    }
+    return fallback
+  }
+
   async function onFile(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0]
     event.target.value = ''
     if (!file) return
-    if (!ACCEPTED.includes(file.type)) return setError('Envie uma imagem PNG, JPEG ou WebP.')
-    if (file.size > MAX_BYTES) return setError('A imagem deve ter no máximo 1 MB.')
+    // Obvious mistakes never leave the browser; the service still checks the real content (FR-005).
+    if (!isAcceptedType(file.type)) return setError(PROFILE_MESSAGES.avatarInvalidFormat)
+    if (file.size > AVATAR_MAX_BYTES) return setError(PROFILE_MESSAGES.avatarTooLarge)
     setError(undefined)
+    let dataUrl: string
     try {
-      await update.mutateAsync({ dataUrl: await readAsDataUrl(file) })
-    } catch (e) {
-      setError(isApiError(e) ? (e.fields.avatar ?? e.message) : 'Não foi possível ler a imagem.')
+      dataUrl = await readAsDataUrl(file)
+    } catch {
+      return setError(PROFILE_MESSAGES.avatarRead)
+    }
+    try {
+      await update.mutateAsync({ dataUrl })
+    } catch (failure) {
+      setError(messageFor(failure, PROFILE_MESSAGES.avatarSave))
     }
   }
 
@@ -41,8 +68,8 @@ export function AvatarEditor({ avatarUrl }: Pick<Profile, 'avatarUrl'>) {
     setError(undefined)
     try {
       await remove.mutateAsync()
-    } catch (e) {
-      setError(isApiError(e) ? e.message : 'Não foi possível remover o avatar.')
+    } catch (failure) {
+      setError(messageFor(failure, PROFILE_MESSAGES.avatarRemove))
     }
   }
 
@@ -61,16 +88,16 @@ export function AvatarEditor({ avatarUrl }: Pick<Profile, 'avatarUrl'>) {
         <input
           ref={input}
           type="file"
-          accept={ACCEPTED.join(',')}
+          accept={AVATAR_TYPES.join(',')}
           onChange={onFile}
           className="sr-only"
           tabIndex={-1}
           aria-label="Selecionar imagem de avatar"
         />
-        <Button size="sm" disabled={busy} onClick={() => input.current?.click()}>
+        <Button type="button" size="sm" disabled={busy} onClick={() => input.current?.click()}>
           {update.isPending ? 'Enviando…' : 'Alterar'}
         </Button>
-        <Button variant="ghost" size="sm" disabled={busy || !avatarUrl} onClick={onRemove} className="px-0">
+        <Button type="button" variant="ghost" size="sm" disabled={busy || !avatarUrl} onClick={onRemove} className="px-0">
           Remover
         </Button>
       </div>

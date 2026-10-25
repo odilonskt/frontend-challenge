@@ -1,5 +1,6 @@
 import { Link } from '@tanstack/react-router'
 import { CartIcon, LoginIcon, ProfileIcon, SearchIcon, iconProps } from '@/shared/icons'
+import { Avatar, AvatarFallback, AvatarImage } from '@/shared/ui/avatar'
 import { CountBadge } from '@/shared/ui/count-badge'
 import { NavLink } from '@/shared/ui/nav-link'
 import { Button } from '@/shared/ui/button'
@@ -56,7 +57,18 @@ export function Navbar({ cartCount = 0, user = null }: NavbarProps) {
           {user ? (
             <Button asChild variant="ghost" size="icon">
               <Link to="/account/profile" aria-label={`Conta de ${user.name}`}>
-                <ProfileIcon {...iconProps} size={20} />
+                {user.avatarUrl ? (
+                  // The photo of the collector's profile. The default icon stays as the fallback while the image
+                  // decodes; without a photo the bar is exactly what it always was (the icon alone).
+                  <Avatar className="size-7">
+                    <AvatarImage src={user.avatarUrl} alt="" />
+                    <AvatarFallback className="bg-transparent">
+                      <ProfileIcon {...iconProps} size={20} />
+                    </AvatarFallback>
+                  </Avatar>
+                ) : (
+                  <ProfileIcon {...iconProps} size={20} />
+                )}
               </Link>
             </Button>
           ) : (

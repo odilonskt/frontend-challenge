@@ -34,6 +34,29 @@ export function authHandlers(api: string, auth: AuthService) {
       route(({ request }) => HttpResponse.json(auth.currentSession(auth.authenticate(bearerToken(request))))),
     ),
 
+    // The account's own data (specs/014-user-profile, contracts/account-endpoints.md). Never touches the profile
+    // service: that one lives under `/backend` (`contexts/profile-backend`).
+    http.patch(
+      `${api}/account`,
+      route(async ({ request }) => {
+        const { userId } = auth.authenticate(bearerToken(request))
+        const body = await readJson(request)
+        return HttpResponse.json(
+          auth.updateAccount(userId, { username: field.string(body, 'username'), email: field.string(body, 'email') }),
+        )
+      }),
+    ),
+
+    http.post(
+      `${api}/account/password`,
+      route(async ({ request }) => {
+        const { userId } = auth.authenticate(bearerToken(request))
+        const body = await readJson(request)
+        await auth.changePassword(userId, field.string(body, 'currentPassword'), field.string(body, 'newPassword'))
+        return new HttpResponse(null, { status: 204 })
+      }),
+    ),
+
     http.post(
       `${api}/auth/logout`,
       route(({ request }) => {

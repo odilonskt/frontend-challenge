@@ -16,7 +16,8 @@ test('profile form is operable by keyboard, with visible focus and associated er
 
   await name.fill('')
   await page.keyboard.press('Tab')
-  await page.getByRole('button', { name: 'Salvar' }).click()
+  // The page now has two sections, each with its own save button (specs/014-user-profile): the display name is in "Perfil".
+  await page.getByRole('region', { name: 'Perfil', exact: true }).getByRole('button', { name: 'Salvar perfil' }).click()
   await expect(name).toHaveAttribute('aria-invalid', 'true')
   const describedBy = await name.getAttribute('aria-describedby')
   expect(describedBy).toBeTruthy()

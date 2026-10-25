@@ -97,7 +97,7 @@ export class AdminService {
   getUser(id: string): AdminUserDetail {
     const user = this.users.findById(id)
     if (!user) throw errors.notFound('Usuário')
-    return { ...toAdminUserSummary(user), bio: user.bio, avatarUrl: user.avatarUrl, updatedAt: user.updatedAt }
+    return { ...toAdminUserSummary(user), updatedAt: user.updatedAt }
   }
 
   suspendUser(id: string): AdminUserDetail {
@@ -112,12 +112,12 @@ export class AdminService {
     const updated = this.users.update(id, { status: 'suspended' })
     this.sessions.deleteByUserId(id)
     if (!updated) throw errors.notFound('Usuário')
-    return { ...toAdminUserSummary(updated), bio: updated.bio, avatarUrl: updated.avatarUrl, updatedAt: updated.updatedAt }
+    return { ...toAdminUserSummary(updated), updatedAt: updated.updatedAt }
   }
 
   reactivateUser(id: string): AdminUserDetail {
     const updated = this.users.update(id, { status: 'active' })
     if (!updated) throw errors.notFound('Usuário')
-    return { ...toAdminUserSummary(updated), bio: updated.bio, avatarUrl: updated.avatarUrl, updatedAt: updated.updatedAt }
+    return { ...toAdminUserSummary(updated), updatedAt: updated.updatedAt }
   }
 }

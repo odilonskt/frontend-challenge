@@ -5,7 +5,6 @@ export interface SessionUser {
   name: string
   email: string
   username: string
-  avatarUrl: string | null
   role: UserRole
 }
 
@@ -25,4 +24,15 @@ export interface SignupRequest {
   username: string
   email: string
   password: string
+}
+
+/** The account's own data (the login identity). The profile (name, bio, ENS, photo) lives in `domains/profile`. */
+export interface UpdateAccountRequest {
+  username: string
+  email: string
+}
+
+export interface ChangePasswordRequest {
+  currentPassword: string
+  newPassword: string
 }

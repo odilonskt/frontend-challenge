@@ -36,8 +36,6 @@ export interface AdminUserSummary {
 }
 
 export interface AdminUserDetail extends AdminUserSummary {
-  bio: string
-  avatarUrl: string | null
   updatedAt: string
 }
 
