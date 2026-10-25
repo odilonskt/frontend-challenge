@@ -628,6 +628,27 @@ test('changing the display name never rewrites orders or receipts already issued
   expect(after.collector.fullName, 'the receipt keeps what was recorded at checkout').toBe('Teste E2E')
 })
 
+test('the navigation bar reads the profile once per session and asks for the photo only when there is one', async ({ page }) => {
+  const calls: string[] = []
+  page.on('request', (request) => {
+    const { pathname } = new URL(request.url())
+    if (pathname.startsWith('/backend/profile')) calls.push(`${request.method()} ${pathname}`)
+  })
+
+  await signIn(page) // a full load of /account/profile: the first (and only) read of the profile
+  const bar = page.getByRole('banner')
+  for (const [link, url] of [['Mercado', /\/market/], ['Criadores', /\/creators/]] as const) {
+    await bar.getByRole('link', { name: link }).click()
+    await expect(page).toHaveURL(url)
+  }
+  await bar.getByRole('link', { name: /^Conta de/ }).click()
+  await expect(page).toHaveURL('/account/profile')
+  await expect(profileSection(page).getByRole('textbox', { name: 'Nome de exibição' })).toBeVisible()
+
+  expect(calls.filter((call) => call === 'GET /backend/profile'), 'the profile is read once, then served from the cache').toHaveLength(1)
+  expect(calls.filter((call) => call.includes('/avatar')), 'no photo is requested when there is none').toEqual([])
+})
+
 test('the profile page has no critical accessibility violations', async ({ page }) => {
   await signIn(page)
   await expect(profileSection(page).getByRole('textbox', { name: 'Nome de exibição' })).toBeVisible()
