@@ -23,8 +23,9 @@ packages to the same exact version (7.10.1): the `latest` tag of `prisma` is cur
 
 ## Database (Prisma)
 
-- Schema: `prisma/schema.prisma` (models `Balance`, `CoinTransaction`, `Admin` mapped to the tables `balances`,
-  `transactions`, `admins`). Migrations: `prisma/migrations/` (initial: `0_init`). Prisma does not model `CHECK`
+- Schema: `prisma/schema.prisma` (models `Balance`, `CoinTransaction`, `Admin`, `Profile`, `ProfileAvatar` mapped to
+  the tables `balances`, `transactions`, `admins`, `profiles`, `profile_avatars`). Migrations: `prisma/migrations/`
+  (initial: `0_init`; collector profile: `1_profile`). Prisma does not model `CHECK`
   constraints, so they are written by hand in the migration SQL: keep them when adding migrations.
 - `pnpm db:migrate` = `prisma migrate deploy` (applies pending migrations, using `DATABASE_URL_UNPOOLED`, the direct
   connection; the pooler is not safe for Migrate's advisory lock). `pnpm db:status` = `prisma migrate status`.
@@ -93,6 +94,40 @@ Limitações conhecidas, sem rodeios:
    (função serverless sem estado). A defesa atual é o custo do scrypt e a resposta idêntica para e-mail
    desconhecido e senha errada.
 
+## Profile (collector)
+
+Per-owner profile of the collector (`specs/014-user-profile`, constitution 1.9.0). Owner routes only, behind
+`requireAuth` (an admin token gets `403 wrong_token_type`; there is **no** admin route for profiles). The owner is read
+**only** from the verified token; an `ownerId` in a body is ignored.
+
+| Route | What it does |
+|-------|--------------|
+| `GET /api/profile` | Display name, bio, ENS label + TLD, wallet nickname, `avatarVersion`, `updatedAt`. An owner that never saved reads empty values with `updatedAt: null` (never `404`). |
+| `PUT /api/profile` | Replaces the five text fields (creates on first use). Idempotent; the last save wins. All invalid fields come back together in `error.fields`; nothing is written if any fails. |
+| `GET /api/profile/avatar` | The photo as `{ dataUrl, version }`, or `404 no_avatar`. Separate from the profile so reading the profile never loads the image. |
+| `PUT /api/profile/avatar` | Replaces the photo. |
+| `DELETE /api/profile/avatar` | Removes the photo. Idempotent (`200` with or without one). |
+
+- **Field codes** (`error.fields`): `displayName` → `too_short` \| `too_long` (3–60 characters), `bio` → `too_long`
+  (≤ 280), `ensName` → `invalid_format` (empty, or `^[a-z0-9][a-z0-9-]{2,39}$`), `ensTld` → `invalid` (`.eth`,
+  `.xyz`, `.art`), `walletNickname` → `too_long` (≤ 40), `avatar` → `invalid_format` \| `too_large`. Lengths count
+  characters (code points), the same unit as the `CHECK` constraints of `1_profile`.
+- **Photo**: PNG, JPEG or WebP, at most 1,048,576 bytes **decoded**, stored as `BYTEA` in `profile_avatars` (separate
+  from `profiles`). The type is read from the **bytes** (signature), never from a file name, and must equal the type
+  declared in the data URL. A refused photo leaves the current one untouched.
+- **Body limit**: `express.json()` caps bodies at 100 kB, but a 1 MiB photo is ~1.4 MB of base64. Only
+  `/api/profile/avatar` gets a 2 MB parser (`src/app.ts`, mounted before the global one); above that the answer is
+  `413 payload_too_large`. Malformed JSON anywhere is `400 invalid_json` (it used to surface as a `500`).
+- **Writes** are one `INSERT ... ON CONFLICT` statement each (no transactions on Neon's HTTP mode), so two simultaneous
+  saves end in one complete row, never a mix.
+- **What it does not hold**: username, e-mail and password stay in the site's simulated account; this API never sees
+  them (a body that sends them is ignored). The profile is presentation data only.
+- **Verifying**: `pnpm smoke-test:profile:local` runs `scripts/profile-smoke-test.mjs` against the real Express app over
+  an in-memory repository (no database): HTTP, auth, validation, limits and the service rules. It does **not** prove the
+  Prisma adapter or the migration; for those run `pnpm db:migrate` on a **development** database and
+  `AUTH_JWT_SECRET=<same as the server> BASE_URL=http://localhost:4001/api pnpm smoke-test:profile` against
+  `pnpm dev:local`.
+
 ## Known, documented limitations
 
 1. **Token issuance trusts the requested owner id.** `POST /auth/token` signs a JWT for whatever
@@ -102,7 +137,9 @@ Limitações conhecidas, sem rodeios:
    rejected before touching any data. It does **not** stop someone who already knows another user's
    id from requesting a token for that id directly. Closing that gap would require real login across
    the whole product, which is out of scope here. See `specs/007-monorepo-vercel-blob/spec.md`
-   (Assumptions) for the full writeup.
+   (Assumptions) for the full writeup. **This applies to the profile too:** whoever knows another collector's id
+   can request a token for it and read or change that collector's profile and photo. It is not full protection
+   against account takeover and must never be presented as one.
 2. **Concurrency is the database's job now.** Top-up and debit are each one atomic SQL statement that
    updates the balance and appends the ledger entry together, under the row lock; a debit only applies when
    `amount >= requested`. Verified: 50 concurrent top-ups end exactly at +50, and 50 concurrent debits
