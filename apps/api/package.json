@@ -11,6 +11,8 @@
     "lint": "oxlint src api",
     "smoke-test": "node scripts/smoke-test.mjs",
     "smoke-test:admin": "node scripts/admin-smoke-test.mjs",
+    "smoke-test:profile": "node scripts/profile-smoke-test.mjs",
+    "smoke-test:profile:local": "tsx scripts/profile-smoke-local.ts",
     "verify:deploy": "node scripts/verify-deploy.mjs",
     "seed:admin": "tsx --env-file=.env.local scripts/seed-admin.ts",
     "postinstall": "prisma generate",
