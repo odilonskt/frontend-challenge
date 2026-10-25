@@ -1,6 +1,16 @@
 import { createHash } from 'node:crypto'
 import { expect, test, type Page } from '@playwright/test'
-import { seedCartItem, signIn } from '../design-system/helpers'
+import {
+  apiGet,
+  createOrderViaApi,
+  hasNoHorizontalScroll,
+  promoteCurrentUserToAdmin,
+  runAxe,
+  seedCartItem,
+  signIn,
+  SESSION_KEY,
+  VIEWPORTS,
+} from '../design-system/helpers'
 
 // specs/016-brazilian-fauna-nfts: the "Fauna Brasileira" collection, 12 NFTs of Brazilian animals (nft_049 … nft_060),
 // appended after the 48 abstract ones, by a creator of its own ("Fauna Viva").
@@ -218,3 +228,155 @@ test('with the service unavailable the catalog shows its usual error state, not 
   await expect(page.getByText('Não foi possível carregar o catálogo')).toBeVisible()
   await expect(page.getByRole('button', { name: 'Tentar novamente' })).toBeVisible()
 })
+
+// --- US2: knowing an animal and buying an edition -----------------------------------------------------------------
+
+const media = (page: Page) => page.getByRole('img', { name: /^Onça-Pintada/ })
+
+test('the detail of an animal shows its name, creator, collection, description, 3 images and 3 editions with their limits', async ({ page }) => {
+  await page.goto('/nft/nft_049')
+  await expect(page.getByRole('heading', { level: 1, name: 'Onça-Pintada' })).toBeVisible()
+  await expect(page.getByText('Por Fauna Viva')).toBeVisible()
+  await expect(page.getByText('Fauna Brasileira').first()).toBeVisible()
+  await expect(page.getByText('O maior felino das Américas', { exact: false }).first()).toBeVisible()
+  await expect(page.getByText('Pantanal', { exact: true })).toBeVisible()
+
+  // The gallery: 3 images, with their own alternative texts, by click and by keyboard.
+  await expect(page.getByRole('button', { name: /^Ver imagem \d de 3$/ })).toHaveCount(3)
+  await expect(media(page).first()).toHaveAttribute('alt', 'Onça-Pintada, obra digital de Fauna Viva')
+  await page.getByRole('button', { name: 'Ver imagem 2 de 3' }).click()
+  await expect(page.getByRole('img', { name: 'Onça-Pintada, detalhe do rosto' })).toBeVisible()
+  const third = page.getByRole('button', { name: 'Ver imagem 3 de 3' })
+  await third.focus()
+  await page.keyboard.press('Enter')
+  await expect(page.getByRole('img', { name: 'Onça-Pintada ao entardecer' })).toBeVisible()
+
+  // The three editions, and the limit per order of each (5, 2 and 1).
+  for (const [edition, limit] of [['Standard', 5], ['Rare', 2], ['Legendary', 1]] as const) {
+    await page.getByRole('radio', { name: new RegExp(edition) }).check({ force: true })
+    // The quantity is kept between editions and clamped to the limit of the one selected: start each from 1.
+    const less = page.getByRole('button', { name: 'Diminuir quantidade' })
+    while (await less.isEnabled()) await less.click()
+    const more = page.getByRole('button', { name: 'Aumentar quantidade' })
+    for (let step = 1; step < limit; step++) await more.click()
+    await expect(more, `${edition} stops at ${limit}`).toBeDisabled()
+  }
+
+  // The total availability is the sum of the editions (18 + 5 + 1).
+  await expect(page.getByText('24 unidade(s)')).toBeVisible()
+})
+
+test('all 12 detail pages open, with 3 images that load and 3 editions', async ({ page }) => {
+  for (const [index, id] of FAUNA_IDS.entries()) {
+    await page.goto(`/nft/${id}`)
+    await expect(page.getByRole('heading', { level: 1, name: FAUNA_NAMES[index] }), id).toBeVisible()
+    await expect(page.getByRole('button', { name: /^Ver imagem \d de 3$/ }), id).toHaveCount(3)
+    await expect(page.getByRole('radio'), id).toHaveCount(3)
+    const loaded = await page
+      .getByRole('img', { name: new RegExp(`^${FAUNA_NAMES[index]}`) })
+      .first()
+      .evaluate((image) => (image as HTMLImageElement).complete && (image as HTMLImageElement).naturalWidth > 0)
+    expect(loaded, `${id}: the main image is decoded`).toBe(true)
+  }
+})
+
+test('buying an edition uses the usual cart: the animal, its edition and its limit are there', async ({ page }) => {
+  await page.goto('/nft/nft_049')
+  await page.getByRole('radio', { name: /Rare/ }).check({ force: true })
+  await page.getByRole('button', { name: 'Comprar' }).click()
+  await expect(page.getByText('Onça-Pintada adicionado ao carrinho.')).toBeVisible()
+
+  await page.goto('/cart')
+  await expect(page.getByText('Onça-Pintada').first()).toBeVisible()
+  await expect(page.getByText('nft_049_rare')).toBeVisible()
+  await expect(page.getByText('máx. 2')).toBeVisible()
+})
+
+test('buying the single Legendary edition makes it sold out for everyone, and only it', async ({ page }) => {
+  await signIn(page)
+  type Editions = { editions: { id: string; available: number; status: string }[] }
+  const before = await api<Editions>(page, '/nfts/nft_049')
+  expect(before.editions.map((edition) => edition.available)).toEqual([18, 5, 1])
+
+  await createOrderViaApi(page, { nftId: 'nft_049', editionId: 'nft_049_legendary' })
+
+  const after = await api<Editions>(page, '/nfts/nft_049')
+  const byId = Object.fromEntries(after.editions.map((edition) => [edition.id, edition]))
+  expect(byId.nft_049_legendary).toMatchObject({ available: 0, status: 'sold_out' })
+  expect(byId.nft_049_standard?.available, 'the other editions are untouched').toBe(18)
+  expect(byId.nft_049_rare?.available).toBe(5)
+
+  await page.goto('/nft/nft_049')
+  await expect(page.getByRole('radio', { name: /Legendary/ })).toBeDisabled()
+  await expect(page.getByText('Legendary · Esgotada')).toBeVisible()
+  await expect(page.getByRole('radio', { name: /Standard/ })).toBeEnabled()
+  await expect(page.getByRole('radio', { name: /Rare/ })).toBeEnabled()
+})
+
+test('a receipt keeps what was recorded at the purchase, even after the edition price changes', async ({ page }) => {
+  await signIn(page)
+  const orderId = await createOrderViaApi(page, { nftId: 'nft_050', editionId: 'nft_050_standard' })
+  type Receipt = { lines: { name: string; editionName: string; unitPrice: string }[]; total: string }
+  const before = await apiGet<Receipt>(page, `/orders/${orderId}`)
+  expect(before.lines[0]).toMatchObject({ name: 'Arara-Azul', editionName: 'Standard' })
+
+  await promoteCurrentUserToAdmin(page)
+  const changed = await page.evaluate(
+    async ([key]) => {
+      const token = localStorage.getItem(key)
+      const response = await fetch('/api/admin/nfts/nft_050/editions/nft_050_standard', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ price: '9.5' }),
+      })
+      return response.status
+    },
+    [SESSION_KEY] as const,
+  )
+  expect(changed).toBe(200)
+  const catalogNow = await api<{ editions: { price: string }[] }>(page, '/nfts/nft_050')
+  expect(Number(catalogNow.editions[0]?.price), 'the catalog price did change').toBe(9.5)
+
+  const after = await apiGet<Receipt>(page, `/orders/${orderId}`)
+  expect(after.lines[0]?.unitPrice, 'the receipt did not').toBe(before.lines[0]?.unitPrice)
+  expect(after.total).toBe(before.total)
+})
+
+test('the favorite button of an animal works and is kept after a reload', async ({ page }) => {
+  await signIn(page)
+  await page.goto('/nft/nft_052')
+  await page.getByRole('button', { name: 'Favoritar' }).click()
+  await expect(page.getByRole('button', { name: 'Favoritado' })).toHaveAttribute('aria-pressed', 'true')
+  // The button updates optimistically: wait until the service really has it before reloading, or the reload can
+  // abort the request in flight and the test would be checking a race.
+  await expect.poll(async () => JSON.stringify(await apiGet<unknown>(page, '/favorites')).includes('nft_052')).toBe(true)
+  await page.reload()
+  await expect(page.getByRole('button', { name: 'Favoritado' })).toBeVisible()
+})
+
+test('long animal names fit the grid and the detail on a narrow screen', async ({ page }) => {
+  await page.setViewportSize(VIEWPORTS.mobile)
+  await page.goto('/')
+  await expect(page.getByText('Peixe-Boi-da-Amazônia', { exact: true }).first()).toBeVisible()
+  expect(await hasNoHorizontalScroll(page)).toBe(true)
+  for (const id of ['nft_059', 'nft_058']) {
+    await page.goto(`/nft/${id}`)
+    await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
+    expect(await hasNoHorizontalScroll(page), id).toBe(true)
+  }
+})
+
+for (const [name, viewport] of Object.entries(VIEWPORTS)) {
+  test.describe(`${name} (${viewport.width}px)`, () => {
+    test.use({ viewport })
+
+    test('the detail of the Onça-Pintada renders without horizontal scroll, accessibly, and matches its baseline', async ({ page }) => {
+      await page.goto('/nft/nft_049')
+      await expect(page.getByRole('heading', { level: 1, name: 'Onça-Pintada' })).toBeVisible()
+      await expect(media(page).first()).toBeVisible()
+      expect(await hasNoHorizontalScroll(page)).toBe(true)
+      expect(await runAxe(page)).toEqual([])
+      await expect(page).toHaveScreenshot(`fauna-detail-${viewport.width}.png`, { fullPage: true })
+    })
+  })
+}
