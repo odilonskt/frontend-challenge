@@ -44,7 +44,7 @@ function RootLayout() {
 function NavbarContainer() {
   const cartCount = useCartCount()
   const session = useSession()
-  const user = session.data ? { name: session.data.user.name, avatarUrl: session.data.user.avatarUrl } : null
+  const user = session.data ? { name: session.data.user.name, avatarUrl: session.data.user.avatarUrl, role: session.data.user.role } : null
   return <Navbar cartCount={cartCount} user={user} />
 }
 

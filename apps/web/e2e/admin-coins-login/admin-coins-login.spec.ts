@@ -37,7 +37,7 @@ async function signInCoinsAdmin(page: Page) {
 test('signs in and shows which administrator is connected', async ({ page }) => {
   await signInCoinsAdmin(page)
   await expect(page.getByText(`Conectado como ${EMAIL}`)).toBeVisible()
-  await expect(page.getByRole('button', { name: 'Sair' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Sair', exact: true })).toBeVisible()
 })
 
 test('a wrong password and an unknown e-mail get exactly the same answer', async ({ page }) => {
@@ -71,7 +71,7 @@ test('invalid input is refused before anything is sent', async ({ page }) => {
 
 test('signing out returns to the sign-in page without the expiry notice and closes the area', async ({ page }) => {
   await signInCoinsAdmin(page)
-  await page.getByRole('button', { name: 'Sair' }).click()
+  await page.getByRole('button', { name: 'Sair', exact: true }).click()
 
   await expect(page).toHaveURL(/\/admin\/coins\/login/)
   await expect(page.getByRole('heading', { name: 'Administração das moedas' })).toBeVisible()
@@ -95,7 +95,7 @@ test('a redirect to another origin or outside the coins area is ignored', async 
     await fillAndSubmit(page, EMAIL, PASSWORD)
     await expect(page).toHaveURL(/\/admin\/coins$/)
     expect(new URL(page.url()).hostname).not.toBe('evil.test')
-    await page.getByRole('button', { name: 'Sair' }).click()
+    await page.getByRole('button', { name: 'Sair', exact: true }).click()
     await expect(page).toHaveURL(/\/admin\/coins\/login/)
   }
 })

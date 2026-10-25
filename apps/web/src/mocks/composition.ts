@@ -94,7 +94,7 @@ export const handlers = [
   ...authHandlers(API, auth),
   ...catalogHandlers(API, catalog),
   ...creatorsHandlers(API, creators),
-  ...adminHandlers(API, admin, auth),
+  ...adminHandlers(API, admin, auth, orders),
   ...mediaGenerationHandlers(API, mediaGeneration),
   ...favoritesHandlers(API, auth, favorites),
   ...cartHandlers(API, auth, cart),

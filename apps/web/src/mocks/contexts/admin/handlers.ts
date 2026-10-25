@@ -1,17 +1,61 @@
 import { HttpResponse, http } from 'msw'
+import { ADMIN_ORDERS_PAGE_SIZE, ORDER_STATUSES } from '@/domains/admin'
 import { NFT_CATEGORIES, type NftCategory } from '@/domains/catalog'
+import type { OrderStatus } from '@/domains/orders'
 import { errors } from '../../http/errors'
 import { field, readJson, route } from '../../http/route'
 import { collect } from '../auth/validation'
 import type { AuthService } from '../auth/service'
+import type { OrderService } from '../orders/service'
 import { requireAdmin } from './guard'
 import type { AdminService } from './service'
 
 const DECIMAL = /^\d+(\.\d{1,18})?$/
+const isOrderStatus = (value: string): value is OrderStatus => (ORDER_STATUSES as readonly string[]).includes(value)
 const isCategory = (value: string): value is NftCategory => (NFT_CATEGORIES as readonly string[]).includes(value)
 
-export function adminHandlers(api: string, admin: AdminService, auth: AuthService) {
+export function adminHandlers(api: string, admin: AdminService, auth: AuthService, orders: OrderService) {
   return [
+    // --- Overview (read-only) ---------------------------------------------
+    http.get(
+      `${api}/admin/overview`,
+      route(({ request }) => {
+        requireAdmin(auth, request)
+        return HttpResponse.json(admin.overview(orders.countByStatus()))
+      }),
+    ),
+
+    // --- Orders of every user (read-only: there is deliberately no write route) -------------------------
+    http.get(
+      `${api}/admin/orders`,
+      route(({ request }) => {
+        requireAdmin(auth, request)
+        const query = new URL(request.url).searchParams
+        const rawStatus = query.get('status')
+        const rawPage = query.get('page')
+        const rawPageSize = query.get('pageSize')
+        const page = rawPage === null ? 1 : Number(rawPage)
+        const pageSize = rawPageSize === null ? ADMIN_ORDERS_PAGE_SIZE : Number(rawPageSize)
+        const fieldErrors = collect({
+          status: rawStatus === null || isOrderStatus(rawStatus) ? null : 'Estado inválido.',
+          page: Number.isInteger(page) && page >= 1 ? null : 'Página inválida.',
+          pageSize: Number.isInteger(pageSize) && pageSize >= 1 && pageSize <= ADMIN_ORDERS_PAGE_SIZE ? null : 'Tamanho de página inválido.',
+        })
+        if (Object.keys(fieldErrors).length > 0) throw errors.validation(fieldErrors)
+        return HttpResponse.json(
+          orders.listAll({ status: rawStatus === null || !isOrderStatus(rawStatus) ? undefined : rawStatus, page, pageSize }),
+        )
+      }),
+    ),
+    http.get<{ orderId: string }>(
+      `${api}/admin/orders/:orderId`,
+      route(({ request, params }) => {
+        requireAdmin(auth, request)
+        return HttpResponse.json(orders.getAny(params.orderId))
+      }),
+    ),
+
+
     // --- Products ---------------------------------------------------------
     http.get(
       `${api}/admin/nfts`,

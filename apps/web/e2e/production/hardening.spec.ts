@@ -89,3 +89,19 @@ test('the coins admin sign-in only reaches /backend/admin on the same origin', a
   for (const url of adminCalls) expect(url.startsWith(`${origin}/backend/admin/`), url).toBe(true)
   expect(requests.filter((url) => new URL(url).port === '4000')).toEqual([])
 })
+
+// specs/013-marketplace-admin: the administration areas of the marketplace are guarded in the production build too,
+// and opening them calls nothing outside the site's own origin (admin data stays the mock's, /backend the real service).
+test('a visitor opening the admin areas is sent to sign-in without leaving the site origin', async ({ page }) => {
+  const requests: string[] = []
+  page.on('request', (request) => requests.push(request.url()))
+
+  for (const path of ['/admin', '/admin/orders']) {
+    await page.goto(path)
+    await expect(page).toHaveURL(/\/login\?redirect=/)
+  }
+
+  const origin = new URL(page.url()).origin
+  expect(requests.filter((url) => ['localhost', '127.0.0.1'].includes(new URL(url).hostname) && !url.startsWith(origin))).toEqual([])
+  expect(requests.filter((url) => new URL(url).port === '4000')).toEqual([])
+})
