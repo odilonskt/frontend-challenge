@@ -63,6 +63,17 @@ async function api<T>(page: Page, path: string): Promise<T> {
   return page.evaluate(async (url) => (await (await fetch(url)).json()) as unknown, `/api${path}`) as Promise<T>
 }
 
+/**
+ * Several reads at once, from inside the page. The simulated API adds a latency (80 to 220 ms) to every call, so reading
+ * 60 NFTs one by one takes seconds; together they take one round. The order of the results is the order of `paths`.
+ */
+async function apiAll<T>(page: Page, paths: string[]): Promise<T[]> {
+  return page.evaluate(
+    async (urls) => Promise.all(urls.map(async (url) => (await (await fetch(url)).json()) as unknown)),
+    paths.map((path) => `/api${path}`),
+  ) as Promise<T[]>
+}
+
 const catalog = (page: Page, query: string) => api<CatalogPage>(page, `/nfts?${query}`)
 const withoutAccents = (text: string) => text.normalize('NFD').replace(/\p{Diacritic}/gu, '')
 
@@ -97,12 +108,14 @@ test('the catalog has 60 NFTs in 5 pages of 12, with no repeated or missing NFT'
 })
 
 test('searching an animal by its name, with or without accents and in capitals, finds it; the collection name finds all 12', async ({ page }) => {
-  for (const [index, name] of FAUNA_NAMES.entries()) {
-    for (const term of [name, withoutAccents(name), name.toUpperCase(), withoutAccents(name).toLowerCase()]) {
-      const found = await catalog(page, `pageSize=48&q=${encodeURIComponent(term)}`)
-      expect(found.items.map((item) => item.id), `"${term}" finds ${name}`).toContain(FAUNA_IDS[index])
-    }
-  }
+  const searches = FAUNA_NAMES.flatMap((name, index) =>
+    [name, withoutAccents(name), name.toUpperCase(), withoutAccents(name).toLowerCase()].map((term) => ({ term, name, id: FAUNA_IDS[index] })),
+  )
+  const results = await apiAll<CatalogPage>(page, searches.map(({ term }) => `/nfts?pageSize=48&q=${encodeURIComponent(term)}`))
+  results.forEach((found, index) => {
+    const { term, name, id } = searches[index]!
+    expect(found.items.map((item) => item.id), `"${term}" finds ${name}`).toContain(id)
+  })
 
   const byCollection = await catalog(page, `pageSize=48&q=${encodeURIComponent('Fauna Brasileira')}`)
   expect(byCollection.items.map((item) => item.id).sort()).toEqual([...FAUNA_IDS].sort())
@@ -151,8 +164,8 @@ test('only the Onça-Pintada is featured, and the animals answer to the catalog 
 
 test('no image of the catalog fails to load (60 NFTs with 3 images each, and the creators avatars)', async ({ page }) => {
   const sources = new Set<string>()
-  for (const id of ALL_IDS) {
-    const detail = await api<Detail>(page, `/nfts/${id}`)
+  const details = await apiAll<Detail>(page, ALL_IDS.map((id) => `/nfts/${id}`))
+  for (const detail of details) {
     sources.add(detail.image.src)
     detail.gallery.forEach((image) => sources.add(image.src))
   }
@@ -160,26 +173,34 @@ test('no image of the catalog fails to load (60 NFTs with 3 images each, and the
   creators.forEach((creator) => sources.add(creator.avatarUrl))
   expect(sources.size, '60 x 3 images and 9 avatars').toBe(189)
 
-  for (const src of sources) {
-    const response = await page.request.get(src)
-    expect(response.status(), src).toBe(200)
-    expect(response.headers()['content-type'], src).toContain('image/svg+xml')
+  const answers = await page.evaluate(
+    async (urls) =>
+      Promise.all(
+        urls.map(async (url) => {
+          const response = await fetch(url)
+          return { url, status: response.status, type: response.headers.get('content-type') ?? '' }
+        }),
+      ),
+    [...sources],
+  )
+  for (const { url, status, type } of answers) {
+    expect(status, url).toBe(200)
+    expect(type, url).toContain('image/svg+xml')
   }
 })
 
 test('the 48 original NFTs are identical to what they were before the collection', async ({ page }) => {
-  const originals: Detail[] = []
-  for (const id of ALL_IDS.slice(0, 48)) originals.push(await api<Detail>(page, `/nfts/${id}`))
+  const originals = await apiAll<Detail>(page, ALL_IDS.slice(0, 48).map((id) => `/nfts/${id}`))
   const hash = createHash('sha256').update(JSON.stringify(originals)).digest('hex')
   expect(hash).toBe(OLD_CATALOG_SHA256)
 })
 
 test('the descriptions of the animals never claim a real blockchain registration', async ({ page }) => {
-  for (const id of FAUNA_IDS) {
-    const detail = await api<Detail>(page, `/nfts/${id}`)
-    expect(detail.description.length, id).toBeGreaterThan(30)
-    expect(detail.description, id).not.toMatch(/on-?chain|blockchain/i)
-  }
+  const details = await apiAll<Detail>(page, FAUNA_IDS.map((id) => `/nfts/${id}`))
+  details.forEach((detail, index) => {
+    expect(detail.description.length, FAUNA_IDS[index]).toBeGreaterThan(30)
+    expect(detail.description, FAUNA_IDS[index]).not.toMatch(/on-?chain|blockchain/i)
+  })
 })
 
 test('a browser that already saved the catalog receives the collection and loses nothing it had', async ({ page }) => {
@@ -272,11 +293,12 @@ test('all 12 detail pages open, with 3 images that load and 3 editions', async (
     await expect(page.getByRole('heading', { level: 1, name: FAUNA_NAMES[index] }), id).toBeVisible()
     await expect(page.getByRole('button', { name: /^Ver imagem \d de 3$/ }), id).toHaveCount(3)
     await expect(page.getByRole('radio'), id).toHaveCount(3)
-    const loaded = await page
-      .getByRole('img', { name: new RegExp(`^${FAUNA_NAMES[index]}`) })
-      .first()
-      .evaluate((image) => (image as HTMLImageElement).complete && (image as HTMLImageElement).naturalWidth > 0)
-    expect(loaded, `${id}: the main image is decoded`).toBe(true)
+    // Wait for the image to decode (an SVG with a 600 px width reports naturalWidth 600): reading `complete` right away
+    // races the download, and loses it when the machine is busy.
+    await expect(page.getByRole('img', { name: new RegExp(`^${FAUNA_NAMES[index]}`) }).first(), `${id}: the main image is decoded`).toHaveJSProperty(
+      'naturalWidth',
+      600,
+    )
   }
 })
 

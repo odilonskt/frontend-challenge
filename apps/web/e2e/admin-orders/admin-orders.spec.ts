@@ -49,6 +49,9 @@ const statusFilter = (page: Page) => page.getByLabel('Estado')
 const pagerText = (page: Page) => page.getByRole('navigation', { name: 'Paginação dos pedidos' }).getByText(/^Página \d+ de \d+/)
 
 async function pageIds(page: Page): Promise<string[]> {
+  // `allInnerTexts` does not wait: with the heading already on screen the table can still be loading, and an empty read
+  // would be taken for an empty list (a race that only showed up when the whole suite ran with a heavier catalog).
+  await expect(rows(page).first()).toBeVisible()
   return idCells(page).allInnerTexts()
 }
 
