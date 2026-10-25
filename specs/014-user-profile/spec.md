@@ -22,12 +22,19 @@ Fatos verificados no repositório (2026-10-25), para situar quem lê:
 5. O login e a senha do colecionador continuam **fictícios e simulados** (constituição: "credenciais fictícias
    apenas"). Esta feature **não** introduz login real.
 
+## Clarifications
+
+### Session 2026-10-25
+
+- Q: Quando só uma das duas partes do formulário (conta ou perfil) for salva, o que o colecionador deve ver? → A: Duas seções com botão de salvar próprio, "Dados da conta" (nome de usuário, e-mail, troca de senha) e "Perfil" (nome de exibição, bio, ENS, apelido da carteira, foto); cada uma salva e falha por si, sem desfazer a outra.
+- Q: Depois de salvar um novo nome de exibição ou foto, onde mais no site eles devem aparecer atualizados? → A: Na página do perfil e na barra de navegação do próprio usuário (nome na etiqueta da conta e foto); a busca de usuários do admin continua mostrando o nome da conta.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Meu perfil em qualquer navegador (Priority: P1)
 
-O colecionador abre "Dados do perfil" no menu da conta, edita nome de exibição, bio, nome ENS e apelido da carteira, e
-salva. Ao entrar com a mesma conta em outro navegador (ou depois de limpar os dados do navegador), vê exatamente os
+O colecionador abre "Dados do perfil" no menu da conta, edita nome de exibição, bio, nome ENS e apelido da carteira na
+seção "Perfil", e salva. Ao entrar com a mesma conta em outro navegador (ou depois de limpar os dados do navegador), vê exatamente os
 dados que salvou.
 
 **Why this priority**: É a razão da feature: hoje o perfil parece da conta, mas some fora do navegador em que foi
@@ -49,6 +56,9 @@ conta e ver os mesmos valores; editar um campo, salvar, recarregar e ver o valor
    volta ao perfil.
 5. **Given** dois colecionadores diferentes, **When** cada um abre o próprio perfil, **Then** cada um vê só os próprios
    dados, e nenhum caminho do site permite ler ou alterar o perfil do outro.
+6. **Given** um colecionador autenticado, **When** salva um novo nome de exibição, **Then** a etiqueta da conta na barra
+   de navegação passa a mostrar o novo nome sem recarregar a página, e em outro navegador mostra o novo nome ao abrir o
+   site.
 
 ---
 
@@ -73,6 +83,8 @@ remover e ver o retorno ao estado sem foto nos dois navegadores.
    do problema e a foto atual não muda.
 4. **Given** um colecionador com foto, **When** remove a foto, **Then** volta ao estado sem foto, e continua assim
    depois de recarregar e em outro navegador.
+5. **Given** um colecionador que troca ou remove a foto, **When** a operação termina, **Then** a barra de navegação
+   mostra a foto nova (ou o estado sem foto) sem recarregar a página.
 
 ---
 
@@ -99,6 +111,9 @@ editar o mesmo campo em dois navegadores e conferir qual valor fica.
    último salvamento, quem recarregar o outro navegador vê esse valor, e o perfil mostra a data da última alteração.
 5. **Given** um salvamento enviado duas vezes por duplo clique ou nova tentativa depois de resposta perdida, **When** o
    serviço o recebe, **Then** o resultado é o mesmo de enviar uma vez só.
+6. **Given** o serviço do perfil indisponível, **When** o usuário salva a seção "Dados da conta" (por exemplo, troca o
+   e-mail), **Then** a conta é salva normalmente; e **When** salva a seção "Perfil" com o serviço fora do ar, **Then**
+   vê a falha e nenhum dado da conta muda.
 
 ---
 
@@ -110,13 +125,16 @@ editar o mesmo campo em dois navegadores e conferir qual valor fica.
   de salvar.
 - **Imagem com tipo declarado diferente do conteúdo** (por exemplo, um arquivo `.png` que não é uma imagem): é recusada
   como formato inválido.
-- **Sessão expirada no meio da edição**: o salvamento falha com a mensagem de sessão inativa, nada é salvo e o
-  formulário mantém os valores digitados enquanto a página estiver aberta, para que o usuário entre de novo e salve.
+- **Sessão do site expirada no meio da edição**: antes de gravar, o salvamento confere a sessão; se ela expirou,
+  nada é salvo e o usuário é levado ao login, voltando a esta página depois de entrar (o comportamento de todo o
+  site). Os valores digitados não são mantidos, porque a página é trocada.
 - **Conta suspensa pela administração**: não consegue entrar, portanto não acessa o perfil; os dados dela não são
   apagados.
 - **Usuário muda o nome de exibição**: pedidos antigos continuam mostrando o nome que estava no pedido quando foi feito
   (recibos são imutáveis), e não o nome atual do perfil.
 - **Foto removida duas vezes seguidas** (duas abas): a segunda remoção é inofensiva e termina no mesmo estado.
+- **Serviço do perfil fora do ar com sessão ativa**: a barra de navegação continua mostrando o nome da conta e o
+  ícone padrão (sem foto), sem erro e sem bloquear a navegação.
 
 ## Requirements *(mandatory)*
 
@@ -124,13 +142,13 @@ editar o mesmo campo em dois navegadores e conferir qual valor fica.
 
 - **FR-001**: O sistema MUST guardar, por colecionador, nome de exibição, bio, nome ENS com domínio, apelido da carteira
   e foto, de forma que apareçam em qualquer navegador em que a mesma conta entre.
-- **FR-002**: O colecionador MUST conseguir ver e editar esses dados em "Dados do perfil", com confirmação de
-  salvamento visível.
+- **FR-002**: O colecionador MUST conseguir ver e editar esses dados em "Dados do perfil", na seção "Perfil", com
+  confirmação de salvamento visível.
 - **FR-003**: O sistema MUST validar nome de exibição, bio (até 280 caracteres), nome ENS (vazio ou de 3 a 40 letras
   minúsculas, números ou hífen), domínio ENS (um dos três permitidos) e apelido da carteira (até 40 caracteres) com as
   mesmas regras e mensagens que o perfil já usa hoje, e mostrar o erro no campo correspondente.
-- **FR-004**: Um salvamento inválido MUST NOT alterar nenhum dado guardado, e o formulário MUST manter o que o usuário
-  digitou.
+- **FR-004**: Um salvamento inválido, em qualquer das duas seções, MUST NOT alterar nenhum dado guardado, e a seção
+  MUST manter o que o usuário digitou.
 - **FR-005**: O sistema MUST aceitar como foto só imagens PNG, JPEG ou WebP de até 1 MB, MUST verificar o conteúdo e não
   apenas o nome do arquivo, e MUST permitir substituir e remover a foto.
 - **FR-006**: Cada colecionador MUST ler e alterar somente o próprio perfil; a identidade do dono de cada requisição
@@ -153,6 +171,14 @@ editar o mesmo campo em dois navegadores e conferir qual valor fica.
   1440 px, como as demais páginas da conta.
 - **FR-015**: O perfil MUST NOT aparecer para outras contas nem para visitantes; nenhuma página pública de perfil é
   criada por esta feature.
+- **FR-016**: A página MUST ter duas seções, cada uma com seu botão de salvar: "Dados da conta" (nome de usuário,
+  e-mail e troca de senha) e "Perfil" (nome de exibição, bio, nome ENS, apelido da carteira e foto). Salvar uma seção
+  MUST NOT salvar, depender de, nem desfazer a outra, e a indisponibilidade do serviço do perfil MUST NOT impedir salvar
+  "Dados da conta".
+- **FR-017**: O nome de exibição e a foto do perfil MUST aparecer na barra de navegação do próprio usuário (nome na
+  etiqueta da conta e foto) e MUST ser atualizados ali, sem recarregar a página, assim que forem salvos; se o serviço do
+  perfil estiver indisponível ou o perfil ainda não tiver sido salvo, a barra MUST mostrar o nome da conta e o ícone padrão, sem
+  foto (a conta não guarda foto). A busca de usuários da administração MUST continuar mostrando o nome da conta.
 
 ### Key Entities *(include if feature involves data)*
 
@@ -181,16 +207,18 @@ editar o mesmo campo em dois navegadores e conferir qual valor fica.
 - **SC-007**: Com o serviço indisponível, 100% dos usuários veem uma mensagem de falha com caminho para tentar de novo,
   e nenhum valor digitado é perdido.
 - **SC-008**: A página não tem violações críticas de acessibilidade e não tem rolagem horizontal em 390, 768 e 1440 px.
+- **SC-009**: Em 100% dos salvamentos de nome de exibição ou de foto, a barra de navegação mostra o valor novo sem
+  recarregar a página.
 
 ## Assumptions
 
 - **Escopo dos dados**: vão para o serviço real o nome de exibição, a bio, o nome ENS com domínio, o apelido da
   carteira e a foto. **Nome de usuário, e-mail e senha ficam na conta simulada do site**, porque são a credencial de
   login e a constituição exige credenciais fictícias; guardá-los em dois lugares criaria duas fontes de verdade para o
-  login. A tela continua mostrando e editando os seis campos juntos, e o usuário não percebe a divisão.
-- **Pré-requisito de governança**: a constituição 1.8.0 não inclui o perfil entre os dados da conta que o serviço real
-  guarda e exige emenda para ampliar essa lista. A emenda (versão 1.9.0, expansão material) precisa ser aprovada antes do
-  plano; esta spec não a faz.
+  login. A tela reflete essa divisão em duas seções, cada uma com seu botão de salvar (ver Clarifications).
+- **Governança (resolvida)**: a constituição 1.8.0 não incluía o perfil entre os dados da conta que o serviço real
+  guarda. A emenda 1.9.0 (expansão material) foi mergeada em 2026-10-25 (PR #12), antes de qualquer código; esta spec
+  não a faz.
 - **Limitação assumida, igual à da 015**: o serviço real identifica o dono pelo identificador que o site pede ao
   emitir a sessão do serviço, porque o login do colecionador é simulado. Isso protege um colecionador de agir sobre o
   perfil de outro depois de autenticado, mas **não** é proteção completa contra quem já conhece o identificador de outra
@@ -200,7 +228,8 @@ editar o mesmo campo em dois navegadores e conferir qual valor fica.
 - **Edição simultânea**: o último salvamento vence; não há aviso de conflito nem mesclagem de campos.
 - **Fora de escopo**: perfil público ou visível a outros usuários, página de perfil de criadores, login real do
   colecionador, recuperação de senha, exclusão de conta, verificação de e-mail e visualização ou edição do perfil de
-  alguém por administradores.
+  alguém por administradores, e mostrar o nome e a foto do perfil na busca de usuários da administração (ela continua
+  mostrando o nome da conta).
 - **Dependência**: a feature 015 já define o padrão de acesso do site ao serviço real para dados da conta; esta feature
   o reaproveita e não duplica essa ligação. Os testes de ponta a ponta do site continuam rodando contra a simulação de
   rede.
