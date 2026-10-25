@@ -225,6 +225,56 @@ function assemble(): OpenApiDocument {
           },
         },
       },
+      "/profile/avatar": {
+        get: {
+          tags: ["profile"],
+          summary: "Foto do perfil do owner do token (data URL).",
+          description:
+            "Devolve a imagem como data URL e a `version` (a mesma `avatarVersion` do perfil). Existe separada do `GET /profile` para o perfil nunca carregar até 1,4 MB (base64) a cada página.",
+          operationId: "getAvatar",
+          security: secured,
+          responses: {
+            "200": okResponse("Foto atual.", "AvatarResponse"),
+            "401": errorResponse("Token ausente, expirado ou inválido."),
+            "403": errorResponse("Token de admin em rota de dono (`wrong_token_type`)."),
+            "404": errorResponse("O owner não tem foto (`no_avatar`)."),
+            default: defaultError,
+          },
+        },
+        put: {
+          tags: ["profile"],
+          summary: "Troca a foto do perfil (substitui a anterior).",
+          description:
+            "Aceita só PNG, JPEG ou WebP de até 1.048.576 bytes **decodificados**. O tipo é conferido pelos **bytes** (assinatura), nunca pelo nome do arquivo, e deve coincidir com o tipo declarado no data URL. Esta rota usa um parser JSON de 2 MB; acima disso a resposta é `413`. Uma foto recusada deixa a atual intacta.",
+          operationId: "saveAvatar",
+          security: secured,
+          requestBody: jsonBody("SaveAvatarRequest"),
+          responses: {
+            "200": okResponse("Foto salva; o perfil devolve a nova `avatarVersion`.", "ProfileResponse"),
+            "400": errorResponse(
+              "`validation_error` com `fields.avatar`: `invalid_format` (não é data URL de PNG/JPEG/WebP, base64 inválido, bytes sem a assinatura do tipo ou tipo declarado diferente do detectado) ou `too_large` (mais de 1.048.576 bytes decodificados). Corpo que não é JSON: `invalid_json`.",
+            ),
+            "401": errorResponse("Token ausente, expirado ou inválido."),
+            "403": errorResponse("Token de admin em rota de dono (`wrong_token_type`)."),
+            "413": errorResponse("Corpo acima de 2 MB (`payload_too_large`)."),
+            "500": errorResponse("Falha no banco; nada foi aplicado (a instrução é atômica)."),
+            default: defaultError,
+          },
+        },
+        delete: {
+          tags: ["profile"],
+          summary: "Remove a foto do perfil.",
+          description: "Idempotente: sem foto também responde `200`, com `avatarVersion: null`.",
+          operationId: "deleteAvatar",
+          security: secured,
+          responses: {
+            "200": okResponse("Perfil sem foto (`avatarVersion: null`).", "ProfileResponse"),
+            "401": errorResponse("Token ausente, expirado ou inválido."),
+            "403": errorResponse("Token de admin em rota de dono (`wrong_token_type`)."),
+            default: defaultError,
+          },
+        },
+      },
     },
     components: {
       schemas: componentSchemas,

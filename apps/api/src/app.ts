@@ -16,6 +16,10 @@ export function createApp(profileRouter: Router = defaultProfileRouter) {
   const app = express()
 
   app.use(cors())
+  // A profile photo (<= 1 MiB) is ~1.4 MB as base64 in JSON, far over the 100 kB default of `express.json()`. Only
+  // this route gets a 2 MB parser (under Vercel's 4.5 MB body limit); it MUST come first: body-parser skips a
+  // body that was already read, so the global parser below leaves it alone.
+  app.use("/api/profile/avatar", express.json({ limit: "2mb" }))
   app.use(express.json())
 
   // Vercel's rewrite (`/api/(.*)` -> `/api/index`) keeps the original request path,

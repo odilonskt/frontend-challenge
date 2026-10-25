@@ -7,7 +7,12 @@ import {
   idempotencyKeySchema,
   transactionsQuerySchema,
 } from "../domains/coins/contracts.js"
-import { profileResponseSchema, saveProfileSchema } from "../domains/profile/contracts.js"
+import {
+  avatarResponseSchema,
+  profileResponseSchema,
+  saveAvatarSchema,
+  saveProfileSchema,
+} from "../domains/profile/contracts.js"
 
 /** A JSON Schema fragment used inside the OpenAPI document. */
 export type JsonSchema = Record<string, unknown>
@@ -40,6 +45,8 @@ const CoinBalanceRecord = toJsonSchema(coinBalanceRecordSchema, "output")
 const CoinTransactionRecord = toJsonSchema(coinTransactionRecordSchema, "output")
 const SaveProfileRequest = toJsonSchema(saveProfileSchema, "input")
 const ProfileResponse = toJsonSchema(profileResponseSchema, "output")
+const SaveAvatarRequest = toJsonSchema(saveAvatarSchema, "input")
+const AvatarResponse = toJsonSchema(avatarResponseSchema, "output")
 
 // --- Response envelopes assembled by hand (no Zod source today) ---------------
 // They reference the Zod-derived records above by $ref so the record shapes stay
@@ -105,6 +112,8 @@ export const componentSchemas: Record<string, JsonSchema> = {
   TransactionsResponse,
   SaveProfileRequest,
   ProfileResponse,
+  SaveAvatarRequest,
+  AvatarResponse,
   HealthResponse,
   Error: Error_,
 }

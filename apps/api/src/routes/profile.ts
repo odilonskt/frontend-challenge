@@ -1,8 +1,8 @@
 import { Router, type Request } from "express"
 import { requireAuth } from "../lib/auth.js"
-import { ProfileValidationError } from "../domains/profile/contracts.js"
+import { AvatarNotFoundError, ProfileValidationError } from "../domains/profile/contracts.js"
 import { profileService, type ProfileService } from "../domains/profile/service.js"
-import { validationError } from "../lib/errors.js"
+import { notFound, validationError } from "../lib/errors.js"
 
 function ownerIdOrThrow(req: Request): string {
   // Always set: this router sits behind requireAuth. The owner comes ONLY from the verified token (FR-006).
@@ -15,6 +15,7 @@ function ownerIdOrThrow(req: Request): string {
 /** Maps the domain errors of the profile service to their HTTP answers. */
 function toApiError(err: unknown): unknown {
   if (err instanceof ProfileValidationError) return validationError(err.message, err.fields)
+  if (err instanceof AvatarNotFoundError) return notFound("no_avatar", err.message)
   return err
 }
 
@@ -36,6 +37,26 @@ export function createProfileRouter(service: ProfileService): Router {
     } catch (err) {
       next(toApiError(err))
     }
+  })
+
+  router.get("/avatar", async (req, res, next) => {
+    try {
+      res.status(200).json(await service.getAvatar(ownerIdOrThrow(req)))
+    } catch (err) {
+      next(toApiError(err))
+    }
+  })
+
+  router.put("/avatar", async (req, res, next) => {
+    try {
+      res.status(200).json(await service.saveAvatar(ownerIdOrThrow(req), req.body))
+    } catch (err) {
+      next(toApiError(err))
+    }
+  })
+
+  router.delete("/avatar", async (req, res) => {
+    res.status(200).json(await service.deleteAvatar(ownerIdOrThrow(req)))
   })
 
   return router

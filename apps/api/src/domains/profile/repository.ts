@@ -1,4 +1,4 @@
-import type { ProfileRecord, SaveProfileInput } from "./contracts.js"
+import type { AvatarContentType, AvatarRecord, ProfileRecord, SaveProfileInput } from "./contracts.js"
 
 /**
  * Port of the profile domain: the service depends on this interface only, so its rules run without a database
@@ -13,4 +13,13 @@ export interface ProfileRepository {
 
   /** Instant of the last photo change, or `null` without a photo. Never loads the image bytes. */
   getAvatarVersion(ownerId: string): Promise<Date | null>
+
+  /** The stored photo (bytes included), or `null` without one. */
+  getAvatar(ownerId: string): Promise<AvatarRecord | null>
+
+  /** Replaces the photo (creating it on first use) and returns its new version. */
+  saveAvatar(ownerId: string, avatar: { contentType: AvatarContentType; data: Uint8Array }): Promise<Date>
+
+  /** Removes the photo. Idempotent: removing what is not there is not an error. */
+  deleteAvatar(ownerId: string): Promise<void>
 }
