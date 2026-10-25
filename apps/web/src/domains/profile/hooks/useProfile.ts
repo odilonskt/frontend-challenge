@@ -3,6 +3,7 @@ import { useMemo } from 'react'
 import { useEnsureSession, useSession } from '@/domains/auth'
 import { BackendError, retryTransientBackend } from '@/shared/api/backend-client'
 import { profileApi, profileKeys } from '../api/profile'
+import { useProfileAvatar } from './useProfileAvatar'
 import type { ProfileResponse, ProfileSummary, ProfileView, SaveProfileRequest } from '../model/contracts'
 
 /** The profile is read at most once per 5 minutes per session; saves write their answer straight into the cache. */
@@ -47,9 +48,13 @@ export function useProfile(): ProfileState {
     retry: retryTransientBackend,
   })
 
+  // The photo is fetched apart (and cached by version): a profile without one, or one whose photo cannot be
+  // reached, still shows (research D4).
+  const avatarUrl = useProfileAvatar(query.data?.avatarVersion ?? null)
+
   const data = useMemo(
-    () => (query.data ? toView(query.data, accountName, null) : undefined),
-    [query.data, accountName],
+    () => (query.data ? toView(query.data, accountName, avatarUrl) : undefined),
+    [query.data, accountName, avatarUrl],
   )
 
   return { data, isPending: query.isPending, isError: query.isError, error: query.error, refetch: () => void query.refetch() }

@@ -119,6 +119,42 @@ function validate(input: unknown): Validated {
   }
 }
 
+/** Image type from the first bytes (never from a file name or the declared type), like the real service. */
+function detectImageType(bytes: Uint8Array): AvatarType | null {
+  const startsWith = (signature: number[], offset = 0) =>
+    bytes.length >= offset + signature.length && signature.every((byte, index) => bytes[offset + index] === byte)
+
+  if (startsWith([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])) return 'image/png'
+  if (startsWith([0xff, 0xd8, 0xff])) return 'image/jpeg'
+  if (startsWith([0x52, 0x49, 0x46, 0x46]) && startsWith([0x57, 0x45, 0x42, 0x50], 8)) return 'image/webp'
+  return null
+}
+
+const BASE64 = /^[A-Za-z0-9+/]*={0,2}$/
+
+/**
+ * Checks the photo of `PUT /profile/avatar`: data URL of PNG/JPEG/WebP, at most 1 MiB DECODED, and the bytes really
+ * are that image. The size comes from the base64 length before decoding, so an oversized payload is never decoded.
+ */
+function parseAvatar(input: unknown): { contentType: AvatarType; dataUrl: string } {
+  const invalid = () => validationFailed({ avatar: 'invalid_format' })
+  if (typeof input !== 'string') throw invalid()
+
+  const declared = AVATAR_TYPES.find((type) => input.startsWith(`data:${type};base64,`))
+  if (declared === undefined) throw invalid()
+
+  const payload = input.slice(`data:${declared};base64,`.length)
+  if (payload.length === 0 || payload.length % 4 !== 0 || !BASE64.test(payload)) throw invalid()
+
+  const padding = payload.endsWith('==') ? 2 : payload.endsWith('=') ? 1 : 0
+  if ((payload.length / 4) * 3 - padding > AVATAR_MAX_BYTES) throw validationFailed({ avatar: 'too_large' })
+
+  const binary = atob(payload)
+  const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0))
+  if (detectImageType(bytes) !== declared) throw invalid()
+  return { contentType: declared, dataUrl: input }
+}
+
 export class ProfileBackendService {
   private readonly store: Store<ProfileBackendState>
   private readonly now: () => number
@@ -148,6 +184,33 @@ export class ProfileBackendService {
     const value = validate(input)
     return this.store.write((state) => {
       state.profiles[ownerId] = { ...value, updatedAt: new Date(this.now()).toISOString() }
+      return this.toBody(state, ownerId)
+    })
+  }
+
+  /** The photo and its version, or `404 no_avatar`. */
+  getAvatar(ownerId: string): { dataUrl: string; version: string } {
+    const avatar = this.store.read((state) => state.avatars[ownerId])
+    if (!avatar) throw new ProfileBackendError(404, 'no_avatar', 'This owner has no profile photo.')
+    return { dataUrl: avatar.dataUrl, version: avatar.updatedAt }
+  }
+
+  /** Replaces the photo after checking format, size and real content; a refused photo leaves the current one. */
+  saveAvatar(ownerId: string, input: unknown): ProfileBody {
+    const { contentType, dataUrl } = parseAvatar(isRecord(input) ? input.dataUrl : undefined)
+    return this.store.write((state) => {
+      // A version is the instant of the change: strictly increasing, so a replacement is always a new cache key.
+      const previous = Date.parse(state.avatars[ownerId]?.updatedAt ?? '')
+      const at = Number.isNaN(previous) ? this.now() : Math.max(this.now(), previous + 1)
+      state.avatars[ownerId] = { contentType, dataUrl, updatedAt: new Date(at).toISOString() }
+      return this.toBody(state, ownerId)
+    })
+  }
+
+  /** Idempotent: with or without a photo the owner ends without one. */
+  deleteAvatar(ownerId: string): ProfileBody {
+    return this.store.write((state) => {
+      delete state.avatars[ownerId]
       return this.toBody(state, ownerId)
     })
   }

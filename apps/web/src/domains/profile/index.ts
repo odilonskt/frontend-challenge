@@ -3,3 +3,4 @@
 export * from './model/contracts'
 export * from './model/messages'
 export * from './hooks/useProfile'
+export { useRemoveAvatar, useUpdateAvatar } from './hooks/useProfileAvatar'

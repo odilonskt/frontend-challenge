@@ -309,6 +309,135 @@ test('the simulated service answers the same codes as the real one', async ({ pa
   expect(unauthenticated).toEqual({ status: 401, code: 'missing_token' })
 })
 
+// --- Photo (US2) ---------------------------------------------------------------------------------------------
+
+type ImageType = 'image/png' | 'image/jpeg' | 'image/webp'
+
+/** A real, decodable image of the given type (the avatar only renders once the browser can decode it). */
+async function makeImage(page: Page, type: ImageType): Promise<Buffer> {
+  const base64 = await page.evaluate(async (mime) => {
+    const canvas = document.createElement('canvas')
+    canvas.width = 8
+    canvas.height = 8
+    const context = canvas.getContext('2d')
+    if (!context) throw new Error('no 2d context')
+    context.fillStyle = mime === 'image/png' ? '#d98b45' : mime === 'image/jpeg' ? '#4585d9' : '#45d98b'
+    context.fillRect(0, 0, 8, 8)
+    const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, mime))
+    if (!blob) throw new Error(`cannot encode ${mime}`)
+    const bytes = new Uint8Array(await blob.arrayBuffer())
+    let binary = ''
+    bytes.forEach((byte) => {
+      binary += String.fromCharCode(byte)
+    })
+    return btoa(binary)
+  }, type)
+  return Buffer.from(base64, 'base64')
+}
+
+const avatarImage = (page: Page) => profileSection(page).getByRole('img', { name: 'Seu avatar atual' })
+const noAvatar = (page: Page) => profileSection(page).getByRole('img', { name: 'Nenhum avatar definido' })
+const navbarPhoto = (page: Page) => page.getByRole('banner').getByRole('link', { name: /^Conta de/ }).locator('img')
+
+async function upload(page: Page, file: { name: string; mimeType: string; buffer: Buffer }) {
+  await profileSection(page).getByLabel('Selecionar imagem de avatar').setInputFiles(file)
+}
+
+test('PNG, JPEG and WebP photos are accepted, replace each other and survive a reload', async ({ page }) => {
+  await signIn(page)
+  await expect(noAvatar(page)).toBeVisible()
+
+  let previous = ''
+  for (const [type, extension] of [['image/png', 'png'], ['image/jpeg', 'jpg'], ['image/webp', 'webp']] as const) {
+    await upload(page, { name: `foto.${extension}`, mimeType: type, buffer: await makeImage(page, type) })
+    await expect(avatarImage(page)).toBeVisible()
+    await expect(avatarImage(page)).toHaveAttribute('src', new RegExp(`^data:${type};base64,`))
+    const src = await avatarImage(page).getAttribute('src')
+    expect(src, `the ${type} replaced the previous photo`).not.toBe(previous)
+    previous = src ?? ''
+  }
+
+  await page.reload()
+  await expect(avatarImage(page)).toHaveAttribute('src', new RegExp('^data:image/webp;base64,'))
+})
+
+test('a photo that is not an image, has the wrong type or is over 1 MB is refused and the current one stays', async ({ page }) => {
+  await signIn(page)
+  await upload(page, { name: 'ok.png', mimeType: 'image/png', buffer: await makeImage(page, 'image/png') })
+  await expect(avatarImage(page)).toBeVisible()
+  const current = await avatarImage(page).getAttribute('src')
+  const profile = profileSection(page)
+
+  // Looks like a PNG by name and declared type, but the content is text: only the service can tell (FR-005).
+  await upload(page, { name: 'falsa.png', mimeType: 'image/png', buffer: Buffer.from('isto nao e uma imagem') })
+  await expect(profile.getByText('Envie uma imagem PNG, JPEG ou WebP.')).toBeVisible()
+  await expect(avatarImage(page)).toHaveAttribute('src', current ?? '')
+
+  // A type that is not accepted is refused before anything is sent.
+  await upload(page, { name: 'bicho.gif', mimeType: 'image/gif', buffer: Buffer.from('GIF89a') })
+  await expect(profile.getByText('Envie uma imagem PNG, JPEG ou WebP.')).toBeVisible()
+
+  // One byte over 1 MB is refused with its own message.
+  const png = await makeImage(page, 'image/png')
+  const big = Buffer.concat([png, Buffer.alloc(1024 * 1024 + 1 - png.length)])
+  await upload(page, { name: 'grande.png', mimeType: 'image/png', buffer: big })
+  await expect(profile.getByText('A imagem deve ter no máximo 1 MB.')).toBeVisible()
+  await expect(avatarImage(page)).toHaveAttribute('src', current ?? '')
+})
+
+test('removing the photo goes back to the default and stays that way; "Remover" is off without a photo', async ({ page }) => {
+  await signIn(page)
+  const profile = profileSection(page)
+  await expect(profile.getByRole('button', { name: 'Remover' })).toBeDisabled()
+
+  await upload(page, { name: 'ok.png', mimeType: 'image/png', buffer: await makeImage(page, 'image/png') })
+  await expect(avatarImage(page)).toBeVisible()
+  await profile.getByRole('button', { name: 'Remover' }).click()
+  await expect(noAvatar(page)).toBeVisible()
+
+  await page.reload()
+  await expect(noAvatar(page)).toBeVisible()
+  await expect(profile.getByRole('button', { name: 'Remover' })).toBeDisabled()
+})
+
+test('the navigation bar shows the photo as soon as it is saved or removed, without reloading', async ({ page }) => {
+  await signIn(page)
+  await expect(navbarPhoto(page)).toHaveCount(0)
+  await page.evaluate(() => {
+    ;(window as unknown as { __marker: number }).__marker = 1
+  })
+
+  await upload(page, { name: 'ok.png', mimeType: 'image/png', buffer: await makeImage(page, 'image/png') })
+  await expect(navbarPhoto(page)).toBeVisible()
+  await expect(navbarPhoto(page)).toHaveAttribute('src', /^data:image\/png;base64,/)
+  expect(await page.evaluate(() => (window as unknown as { __marker?: number }).__marker), 'the page was not reloaded').toBe(1)
+
+  await profileSection(page).getByRole('button', { name: 'Remover' }).click()
+  await expect(navbarPhoto(page)).toHaveCount(0)
+})
+
+test('saving the text keeps the photo and saving the photo keeps the text', async ({ page }) => {
+  await signIn(page)
+  const profile = profileSection(page)
+
+  await fillProfile(page, { displayName: 'Texto Salvo', bio: 'bio salva' })
+  await saveProfile(page)
+  await expect(profile.getByText('Alterações salvas.')).toBeVisible()
+
+  await upload(page, { name: 'ok.png', mimeType: 'image/png', buffer: await makeImage(page, 'image/png') })
+  await expect(avatarImage(page)).toBeVisible()
+  await page.reload()
+  await expect(profile.getByRole('textbox', { name: 'Nome de exibição' })).toHaveValue('Texto Salvo')
+  await expect(avatarImage(page)).toBeVisible()
+
+  await fillProfile(page, { bio: 'bio nova' })
+  await saveProfile(page)
+  await expect(profile.getByText('Alterações salvas.')).toBeVisible()
+  await page.reload()
+  await expect(profile.getByRole('textbox', { name: 'Bio' })).toHaveValue('bio nova')
+  await expect(avatarImage(page)).toBeVisible()
+})
+
 test('the profile page has no critical accessibility violations', async ({ page }) => {
   await signIn(page)
   await expect(profileSection(page).getByRole('textbox', { name: 'Nome de exibição' })).toBeVisible()
@@ -326,6 +455,19 @@ for (const [name, viewport] of Object.entries(VIEWPORTS)) {
       expect(await runAxe(page)).toEqual([])
       // The username and e-mail of the throw-away account differ on every run: mask them, compare the rest.
       await expect(page).toHaveScreenshot(`profile-${viewport.width}.png`, {
+        fullPage: true,
+        mask: [accountSection(page).getByRole('textbox')],
+      })
+    })
+
+    test('the profile page with a photo renders accessibly and matches its baseline', async ({ page }) => {
+      await signIn(page)
+      await upload(page, { name: 'foto.png', mimeType: 'image/png', buffer: await makeImage(page, 'image/png') })
+      await expect(avatarImage(page)).toBeVisible()
+      await expect(navbarPhoto(page)).toBeVisible()
+      expect(await hasNoHorizontalScroll(page)).toBe(true)
+      expect(await runAxe(page)).toEqual([])
+      await expect(page).toHaveScreenshot(`profile-photo-${viewport.width}.png`, {
         fullPage: true,
         mask: [accountSection(page).getByRole('textbox')],
       })

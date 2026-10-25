@@ -71,5 +71,18 @@ export function profileBackendHandlers(
         return HttpResponse.json(service.save(ownerId, await bodyOf(request)))
       })(),
     ),
+
+    http.get(`${base}/profile/avatar`, ({ request }) => run(() => HttpResponse.json(service.getAvatar(ownerOf(request))))()),
+
+    http.put(`${base}/profile/avatar`, ({ request }) =>
+      run(async () => {
+        const ownerId = ownerOf(request)
+        return HttpResponse.json(service.saveAvatar(ownerId, await bodyOf(request)))
+      })(),
+    ),
+
+    http.delete(`${base}/profile/avatar`, ({ request }) =>
+      run(() => HttpResponse.json(service.deleteAvatar(ownerOf(request))))(),
+    ),
   ]
 }

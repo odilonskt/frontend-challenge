@@ -21,6 +21,7 @@ import { Input } from '@/shared/ui/input'
 import { Label } from '@/shared/ui/label'
 import { Select } from '@/shared/ui/select'
 import { Textarea } from '@/shared/ui/textarea'
+import { AvatarEditor } from './AvatarEditor'
 
 // The collector's profile (display name, bio, ENS name, wallet nickname): it lives in the real service and is saved
 // on its own, never together with the account (specs/014-user-profile, FR-001, FR-016).
@@ -155,7 +156,12 @@ export function ProfileSection() {
         Perfil
       </h2>
       {profile.isPending && !profile.isError ? <FormSkeleton /> : null}
-      {profile.data && <ProfileForm profile={profile.data} />}
+      {profile.data && (
+        <>
+          <AvatarEditor avatarUrl={profile.data.avatarUrl} />
+          <ProfileForm profile={profile.data} />
+        </>
+      )}
       {profile.isError && (
         // The form is NOT shown with invented data; the account section above keeps working (FR-011, FR-016).
         <div role="alert" className="flex flex-col items-start gap-4">
