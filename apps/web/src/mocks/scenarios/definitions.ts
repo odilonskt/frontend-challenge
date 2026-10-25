@@ -37,6 +37,8 @@ export interface ScenarioDefinition {
   ledgerUnavailable?: boolean
   /** The first coins write of each owner is applied, then answered 503 (response lost after the commit). */
   ledgerLoseFirstWriteResponse?: boolean
+  /** The collector's profile service (`/backend/profile*`) answers 503; coins and the account keep working. */
+  profileUnavailable?: boolean
   /** Every coins-admin token (`/backend/admin/*`) is refused with 401, as if the 15-minute access had run out. */
   coinsAdminSessionExpired?: boolean
   realtimeOffline?: boolean
@@ -84,6 +86,7 @@ export const SCENARIOS: ScenarioDefinition[] = [
   { id: 'payment-declined', label: 'Pagamento recusado', description: 'A liquidação do pedido é recusada.', latency: DEFAULT_LATENCY, paymentOutcome: 'declined' },
   { id: 'coins-unavailable', label: 'Moedas indisponíveis', description: 'O serviço de moedas (/backend) responde 503.', latency: DEFAULT_LATENCY, ledgerUnavailable: true },
   { id: 'coins-response-lost', label: 'Resposta de moedas perdida', description: 'A primeira recarga/débito é aplicada, mas a resposta volta como 503.', latency: DEFAULT_LATENCY, ledgerLoseFirstWriteResponse: true },
+  { id: 'profile-unavailable', label: 'Perfil indisponível', description: 'O serviço do perfil (/backend/profile) responde 503; moedas e conta seguem funcionando.', latency: DEFAULT_LATENCY, profileUnavailable: true },
   { id: 'coins-admin-session-expired', label: 'Sessão de admin de moedas expirada', description: 'Todo token de admin de moedas é recusado com 401.', latency: DEFAULT_LATENCY, coinsAdminSessionExpired: true },
   { id: 'wallet-rejected', label: 'Carteira recusa conexão', description: 'A conexão com a carteira é recusada.', latency: DEFAULT_LATENCY, walletRejects: true },
   { id: 'realtime-offline', label: 'Tempo real fora do ar', description: 'O Socket.IO recusa conexões (REST continua).', latency: DEFAULT_LATENCY, realtimeOffline: true },

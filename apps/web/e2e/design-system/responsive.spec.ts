@@ -19,7 +19,11 @@ for (const [name, viewport] of Object.entries(VIEWPORTS)) {
       const dock = page.getByRole('navigation', { name: 'Navegação rápida' })
       if (viewport.width < 768) await expect(dock).toBeVisible()
       else await expect(dock).toBeHidden()
-      await expect(page).toHaveScreenshot(`profile-${viewport.width}.png`, { fullPage: true })
+      // The username and e-mail of the throw-away account differ on every run: mask them, compare the rest.
+      await expect(page).toHaveScreenshot(`profile-${viewport.width}.png`, {
+        fullPage: true,
+        mask: [page.getByRole('region', { name: 'Dados da conta', exact: true }).getByRole('textbox')],
+      })
     })
   })
 }

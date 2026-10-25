@@ -2,6 +2,7 @@ import { Link, Outlet, createRootRouteWithContext } from '@tanstack/react-router
 import { useAuthErrorRedirect, useSession } from '@/domains/auth'
 import { useCartCount } from '@/domains/cart'
 import { useCatalogRealtimeSync } from '@/domains/catalog'
+import { useProfileSummary } from '@/domains/profile'
 import { Button } from '@/shared/ui/button'
 import { PageContainer } from '@/shared/ui/page-container'
 import { Dock, DOCK_HEIGHT_CLASS } from '../layout/Dock'
@@ -44,7 +45,13 @@ function RootLayout() {
 function NavbarContainer() {
   const cartCount = useCartCount()
   const session = useSession()
-  const user = session.data ? { name: session.data.user.name, avatarUrl: session.data.user.avatarUrl, role: session.data.user.role } : null
+  // The name and photo come from the collector's profile (real service); they fall back to the account's name and
+  // the default icon while loading, when the service is down or when no profile was saved (FR-017).
+  const profile = useProfileSummary()
+  const user =
+    session.data && profile
+      ? { name: profile.displayName, avatarUrl: profile.avatarUrl, role: session.data.user.role }
+      : null
   return <Navbar cartCount={cartCount} user={user} />
 }
 

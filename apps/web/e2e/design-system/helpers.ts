@@ -7,6 +7,7 @@ declare global {
       scenario: { select: (id: string) => void }
       settleAllOrders: () => void
       setRole: (userId: string, role: 'collector' | 'admin') => void
+      expireSessions: () => void
     }
   }
 }

@@ -23,7 +23,7 @@ src/
   app/        router, providers, layout raiz e rotas finas (src/app/routes)
   pages/      UMA PASTA POR PÁGINA do e-commerce
   domains/    regras de negócio (DDD): contratos, API, cache, eventos
-  shared/     design system (shadcn/ui), Axios, Socket.IO, utilitários
+  shared/     design system (shadcn/ui), Axios, Socket.IO, utilitários; `shared/api/backend-client.ts` é o cliente do serviço real (`/backend`: token por dono, 401 renova uma vez)
   mocks/      MSW: banco simulado, fixtures, handlers, cenários, socket
 e2e/          Playwright, uma pasta por página
 ```
@@ -39,7 +39,7 @@ e2e/          Playwright, uma pasta por página
 | `pages/order-confirmation` | Confirmação de pedido | `/orders/$orderId` | orders |
 | `pages/login` | Login | `/login` | auth, cart |
 | `pages/signup` | Cadastro | `/signup` | auth, cart |
-| `pages/profile` | Perfil do colecionador | `/account/profile` | profile, auth |
+| `pages/profile` | Perfil do colecionador (duas seções: "Dados da conta" e "Perfil", cada uma salva por si) | `/account/profile` | profile, auth |
 | `pages/wallets` | Carteiras | `/account/wallets` | wallets, ledger |
 | `pages/admin-dashboard` | Visão geral (totais e atalhos do admin) | `/admin` | admin |
 | `pages/admin-orders` | Pedidos de todos os usuários (lista, filtro, paginação) | `/admin/orders` | admin |
@@ -68,8 +68,8 @@ src/pages/<página>/
 | `cart` | Carrinho, cupom, cotação, merge do visitante |
 | `checkout` | Dados do colecionador, rede, idempotência |
 | `orders` | Pedidos, `order.updated`, recibo |
-| `auth` | Sessão, cadastro, login, expiração |
-| `profile` | Perfil, avatar, senha |
+| `auth` | Sessão, cadastro, login, expiração e a **conta** (nome de usuário, e-mail, senha; `/api/account*`, simulada) |
+| `profile` | **Perfil** do colecionador no serviço real (`apps/api`, `/backend/profile*`): nome de exibição, bio, ENS, apelido da carteira, foto e o resumo da barra de navegação. Usuário, e-mail e senha **não** estão aqui (são da conta, em `auth`) |
 | `wallets` | Carteiras e conexão simulada |
 | `admin` | Admin do marketplace (simulado, MSW): visão geral, pedidos de todos os usuários e produtos/usuários; leituras de pedido somente leitura |
 | `coins-admin` | Admin real das moedas (`apps/api`): sessão só em memória, lista de donos, saldo e extrato; somente leitura |
